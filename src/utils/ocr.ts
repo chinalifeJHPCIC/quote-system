@@ -43,6 +43,7 @@ function getOpenRouterConfig() {
   return {
     apiKey,
     model,
+    maxTokens: Number(import.meta.env.VITE_OPENROUTER_MAX_TOKENS || "1200"),
     baseUrl:
       import.meta.env.VITE_OPENROUTER_BASE_URL ||
       "https://openrouter.ai/api/v1",
@@ -116,6 +117,7 @@ export async function recognizeDocument(file: File) {
     },
     body: JSON.stringify({
       model: config.model,
+      max_tokens: config.maxTokens,
       messages: [
         {
           role: "user",
