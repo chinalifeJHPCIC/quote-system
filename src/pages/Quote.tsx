@@ -675,8 +675,11 @@ export default function Quote() {
         </section>
 
         <div className="quote-preview-sheet" ref={previewRef}>
-          <img alt="中国人寿财产保险" className="quote-logo" src={excelLogo} />
-          <h1 className="sheet-title">车险报价单</h1>
+          <div className="sheet-header">
+            <img alt="中国人寿财产保险" className="quote-logo" src={excelLogo} />
+            <h1 className="sheet-title">车险报价单</h1>
+            <div className="sheet-divider" />
+          </div>
           <p className="sheet-recipient">
             {template.insuredLabel} {getInsuredDisplayName(form)}
           </p>
