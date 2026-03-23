@@ -21,6 +21,14 @@ type OpenRouterResponse = {
   }>;
 };
 
+type OpenRouterErrorPayload = {
+  error?: {
+    message?: string;
+    code?: number | string;
+    metadata?: Record<string, unknown>;
+  };
+};
+
 function getOpenRouterConfig() {
   const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
   const model =
@@ -72,6 +80,27 @@ function extractJsonBlock(text: string) {
   return objectMatch?.[0]?.trim() ?? text.trim();
 }
 
+function getOpenRouterErrorMessage(status: number, payload?: OpenRouterErrorPayload) {
+  const apiMessage = payload?.error?.message?.trim();
+  if (apiMessage) {
+    return `OpenRouter 调用失败: ${apiMessage}`;
+  }
+
+  if (status === 401) {
+    return "OpenRouter 鉴权失败，请检查 VITE_OPENROUTER_API_KEY 是否正确。";
+  }
+
+  if (status === 402) {
+    return "OpenRouter 调用失败：当前账号额度不足或计费未开通，请检查 credits / billing。";
+  }
+
+  if (status === 429) {
+    return "OpenRouter 调用过于频繁，请稍后重试。";
+  }
+
+  return `OpenRouter 调用失败: ${status}`;
+}
+
 export async function recognizeDocument(file: File) {
   const config = getOpenRouterConfig();
   const base64 = await toBase64(file);
@@ -116,7 +145,15 @@ export async function recognizeDocument(file: File) {
   });
 
   if (!response.ok) {
-    throw new Error(`OpenRouter 调用失败: ${response.status}`);
+    let payload: OpenRouterErrorPayload | undefined;
+
+    try {
+      payload = (await response.json()) as OpenRouterErrorPayload;
+    } catch {
+      payload = undefined;
+    }
+
+    throw new Error(getOpenRouterErrorMessage(response.status, payload));
   }
 
   const data = (await response.json()) as OpenRouterResponse;

@@ -13,6 +13,7 @@ import {
 
 type QuoteFormState = {
   quoteDate: string;
+  quoteDateInput: string;
   plate: string;
   insuredName: string;
   companyName: string;
@@ -43,6 +44,7 @@ type QuoteFormState = {
 
 const initialForm: QuoteFormState = {
   quoteDate: new Date().toISOString().slice(0, 10),
+  quoteDateInput: new Date().toISOString().slice(0, 10).replace(/-/g, ""),
   plate: "",
   insuredName: "",
   companyName: "",
@@ -135,6 +137,25 @@ function formatQuoteDate(value: string) {
   return `${year}年${month}月${day}日`;
 }
 
+function normalizeDateInput(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 8);
+  if (digits.length !== 8) {
+    return {
+      normalized: "",
+      digits,
+    };
+  }
+
+  const year = digits.slice(0, 4);
+  const month = digits.slice(4, 6);
+  const day = digits.slice(6, 8);
+
+  return {
+    normalized: `${year}-${month}-${day}`,
+    digits,
+  };
+}
+
 export default function Quote() {
   const previewRef = useRef<HTMLDivElement | null>(null);
   const [form, setForm] = useState<QuoteFormState>(initialForm);
@@ -168,6 +189,33 @@ export default function Quote() {
     value: QuoteFormState[K],
   ) => {
     setForm((current) => ({ ...current, [key]: value }));
+  };
+
+  const handleTodayDate = () => {
+    const today = new Date().toISOString().slice(0, 10);
+    setForm((current) => ({
+      ...current,
+      quoteDate: today,
+      quoteDateInput: today.replace(/-/g, ""),
+    }));
+  };
+
+  const handleDatePickerChange = (value: string) => {
+    setForm((current) => ({
+      ...current,
+      quoteDate: value,
+      quoteDateInput: value.replace(/-/g, ""),
+    }));
+  };
+
+  const handleDateTextChange = (value: string) => {
+    const { normalized, digits } = normalizeDateInput(value);
+
+    setForm((current) => ({
+      ...current,
+      quoteDate: normalized || current.quoteDate,
+      quoteDateInput: digits,
+    }));
   };
 
   const handleCalculate = () => {
@@ -287,11 +335,27 @@ export default function Quote() {
             <div className="form-grid">
               <label>
                 <span>报价日期</span>
-                <input
-                  type="date"
-                  value={form.quoteDate}
-                  onChange={(e) => updateForm("quoteDate", e.target.value)}
-                />
+                <div className="date-control-group">
+                  <button
+                    className="secondary-link date-today-button"
+                    onClick={handleTodayDate}
+                    type="button"
+                  >
+                    当天
+                  </button>
+                  <input
+                    type="date"
+                    value={form.quoteDate}
+                    onChange={(e) => handleDatePickerChange(e.target.value)}
+                  />
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="yyyymmdd"
+                    value={form.quoteDateInput}
+                    onChange={(e) => handleDateTextChange(e.target.value)}
+                  />
+                </div>
               </label>
 
               <label>

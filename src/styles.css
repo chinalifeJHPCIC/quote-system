@@ -161,6 +161,13 @@ p {
   color: #4b5563;
 }
 
+.date-control-group {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+
 .form-grid input[type="number"] {
   width: 100%;
   padding: 12px 14px;
@@ -183,6 +190,10 @@ p {
   border: 1px solid rgba(107, 114, 128, 0.3);
   border-radius: 14px;
   background: #fff;
+}
+
+.date-today-button {
+  white-space: nowrap;
 }
 
 .checkbox-field {
@@ -394,7 +405,8 @@ p {
   }
 
   .editor-grid,
-  .sheet-basic-grid {
+  .sheet-basic-grid,
+  .date-control-group {
     grid-template-columns: 1fr;
   }
 

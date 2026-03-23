@@ -35,7 +35,7 @@ export default function Upload() {
             <p className="eyebrow">OCR</p>
             <h1>证件识别</h1>
             <p className="intro">
-              上传行驶证、身份证或营业执照，调用 Gemini 返回 JSON 识别结果。
+              上传行驶证、身份证或营业执照，调用 OpenRouter 返回 JSON 识别结果。
             </p>
           </div>
           <Link className="secondary-link" to="/">
@@ -53,7 +53,7 @@ export default function Upload() {
         <p className="status-text">
           {isLoading
             ? "识别中..."
-            : "请确保已在 .env 中配置 VITE_API_KEY。"}
+            : "请确保已配置 VITE_OPENROUTER_API_KEY。"}
         </p>
 
         {error ? <div className="result-block">{error}</div> : null}
