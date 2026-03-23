@@ -1,5 +1,3 @@
-import { GoogleGenAI } from "@google/genai";
-
 export type RecognizedDocument = {
   plate?: string;
   vehicleType?: string;
@@ -15,14 +13,34 @@ export type RecognizedDocument = {
   raw?: string;
 };
 
-function getAiClient() {
-  const apiKey = import.meta.env.VITE_API_KEY;
+type OpenRouterResponse = {
+  choices?: Array<{
+    message?: {
+      content?: string;
+    };
+  }>;
+};
+
+function getOpenRouterConfig() {
+  const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
+  const model =
+    import.meta.env.VITE_OPENROUTER_MODEL || "openai/gpt-4o-mini";
 
   if (!apiKey) {
-    throw new Error("缺少 VITE_API_KEY，无法调用 OCR 识别。");
+    throw new Error(
+      "缺少 VITE_OPENROUTER_API_KEY。请在启动 dev/build 的终端中先 export 再运行。",
+    );
   }
 
-  return new GoogleGenAI({ apiKey });
+  return {
+    apiKey,
+    model,
+    baseUrl:
+      import.meta.env.VITE_OPENROUTER_BASE_URL ||
+      "https://openrouter.ai/api/v1",
+    appName: import.meta.env.VITE_OPENROUTER_APP_NAME || "quote-system",
+    siteUrl: import.meta.env.VITE_OPENROUTER_SITE_URL || window.location.origin,
+  };
 }
 
 async function toBase64(file: File) {
@@ -55,38 +73,54 @@ function extractJsonBlock(text: string) {
 }
 
 export async function recognizeDocument(file: File) {
-  const ai = getAiClient();
+  const config = getOpenRouterConfig();
   const base64 = await toBase64(file);
+  const imageUrl = `data:${file.type || "application/octet-stream"};base64,${base64}`;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-1.5-flash",
-    contents: [
-      {
-        role: "user",
-        parts: [
-          {
-            inlineData: {
-              mimeType: file.type || "application/octet-stream",
-              data: base64,
+  const response = await fetch(`${config.baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${config.apiKey}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": config.siteUrl,
+      "X-Title": config.appName,
+    },
+    body: JSON.stringify({
+      model: config.model,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: [
+                "请识别图片中的证件或报价信息，并只输出 JSON。",
+                "返回字段: plate, vehicleType, brandModel, energyType, name, companyName, firstRegistrationDate, usageNature, approvedPassengers, approvedLoad, templateType。",
+                "templateType 只能是 新能源、机动车、特种车 之一。",
+                "如果是行驶证或报价单，尽量提取号牌号码、厂牌车型、初次登记日期、使用性质、核定载客、核定载质量。",
+                "如果是身份证，提取姓名。",
+                "如果是营业执照，提取 companyName。",
+                "没有识别到的字段返回空字符串。",
+              ].join(" "),
             },
-          },
-          {
-            text: [
-              "识别证件并输出 JSON。",
-              "字段使用中文 key 对应的英文 JSON key，返回: plate, vehicleType, brandModel, energyType, name, companyName, firstRegistrationDate, usageNature, approvedPassengers, approvedLoad, templateType。",
-              "templateType 只能返回 新能源、机动车、特种车 其中一个。",
-              "如果是行驶证，尽量提取车牌号、车辆类型、厂牌型号、初次登记日期、使用性质、核定载客、核定载质量。",
-              "如果是身份证，提取姓名。",
-              "如果是营业执照，提取公司名称。",
-              "无法识别时返回 {\"documentType\":\"unknown\",\"rawText\":\"...\"}。",
-            ].join(" "),
-          },
-        ],
-      },
-    ],
+            {
+              type: "image_url",
+              image_url: {
+                url: imageUrl,
+              },
+            },
+          ],
+        },
+      ],
+    }),
   });
 
-  return response.text ?? "";
+  if (!response.ok) {
+    throw new Error(`OpenRouter 调用失败: ${response.status}`);
+  }
+
+  const data = (await response.json()) as OpenRouterResponse;
+  return data.choices?.[0]?.message?.content ?? "";
 }
 
 export async function recognize(file: File): Promise<RecognizedDocument> {
