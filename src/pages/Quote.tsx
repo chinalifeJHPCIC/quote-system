@@ -12,6 +12,7 @@ import {
 } from "../utils/quoteTemplates";
 
 type QuoteFormState = {
+  quoteDate: string;
   plate: string;
   insuredName: string;
   companyName: string;
@@ -41,6 +42,7 @@ type QuoteFormState = {
 };
 
 const initialForm: QuoteFormState = {
+  quoteDate: new Date().toISOString().slice(0, 10),
   plate: "",
   insuredName: "",
   companyName: "",
@@ -126,6 +128,13 @@ function getInsuredDisplayName(form: QuoteFormState) {
   return form.companyName || form.insuredName || "________";
 }
 
+function formatQuoteDate(value: string) {
+  if (!value) return "";
+  const [year = "", month = "", day = ""] = value.split("-");
+  if (!year || !month || !day) return value;
+  return `${year}年${month}月${day}日`;
+}
+
 export default function Quote() {
   const previewRef = useRef<HTMLDivElement | null>(null);
   const [form, setForm] = useState<QuoteFormState>(initialForm);
@@ -142,6 +151,7 @@ export default function Quote() {
   const commercialTotal = useMemo(() => getCommercialPremiumTotal(items), [items]);
   const vehicleTotal = useMemo(() => getVehiclePremiumTotal(items), [items]);
   const grandTotal = vehicleTotal + template.extraInsurancePremium;
+  const quoteDate = useMemo(() => formatQuoteDate(form.quoteDate), [form.quoteDate]);
   const mainItems = items.filter(
     (item) => item.id !== "compulsory" && item.id !== "tax",
   );
@@ -275,6 +285,15 @@ export default function Quote() {
             </p>
 
             <div className="form-grid">
+              <label>
+                <span>报价日期</span>
+                <input
+                  type="date"
+                  value={form.quoteDate}
+                  onChange={(e) => updateForm("quoteDate", e.target.value)}
+                />
+              </label>
+
               <label>
                 <span>号牌号码</span>
                 <input
@@ -716,6 +735,9 @@ export default function Quote() {
 
           <p className="sheet-reminder">{template.reminder}</p>
           <p className="sheet-company">{template.companyLine}</p>
+          <div className="sheet-date-row">
+            <span>{quoteDate}</span>
+          </div>
         </div>
       </div>
     </div>

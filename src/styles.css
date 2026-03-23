@@ -169,6 +169,14 @@ p {
   background: #fff;
 }
 
+.form-grid input[type="date"] {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid rgba(107, 114, 128, 0.3);
+  border-radius: 14px;
+  background: #fff;
+}
+
 .form-grid input[type="text"] {
   width: 100%;
   padding: 12px 14px;
@@ -367,6 +375,15 @@ p {
   margin-top: 4px;
 }
 
+.sheet-date-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 24px;
+  font-family: "STZhongsong", "Songti SC", serif;
+  font-size: 18px;
+  line-height: 1.7;
+}
+
 @media (max-width: 640px) {
   .card {
     padding: 24px;
@@ -397,7 +414,8 @@ p {
   .sheet-reminder,
   .sheet-company,
   .sheet-desc,
-  .sheet-recipient {
+  .sheet-recipient,
+  .sheet-date-row {
     font-size: 14px;
   }
 }
