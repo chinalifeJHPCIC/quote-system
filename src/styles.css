@@ -750,6 +750,14 @@ p {
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.08);
 }
 
+.quote-preview-scroll {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 4px;
+}
+
 .sheet-header {
   display: grid;
   gap: 10px;
@@ -861,42 +869,152 @@ p {
 }
 
 @media (max-width: 640px) {
+  .page-shell {
+    padding: 16px 10px 24px;
+  }
+
   .card {
-    padding: 24px;
+    padding: 16px;
+    border-radius: 16px;
   }
 
   .heading-row {
     flex-direction: column;
+    align-items: stretch;
+  }
+
+  .heading-row .action-row,
+  .template-tabs,
+  .action-row {
+    width: 100%;
+  }
+
+  .heading-row .action-row .secondary-link,
+  .action-row .secondary-link,
+  .action-row .primary-button {
+    flex: 1 1 0;
+    width: 100%;
+  }
+
+  .template-tab {
+    flex: 1 1 calc(33.333% - 8px);
+    min-width: 88px;
+    text-align: center;
+    padding: 10px 12px;
+  }
+
+  .editor-panel {
+    padding: 14px;
   }
 
   .editor-grid,
-  .sheet-basic-grid,
-  .date-control-group {
+  .sheet-basic-grid {
     grid-template-columns: 1fr;
+  }
+
+  .form-grid,
+  .result-grid,
+  .info-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .date-control-group,
+  .policy-date-group {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .date-today-button,
+  .secondary-link,
+  .primary-button {
+    justify-content: center;
+  }
+
+  .checkbox-field {
+    padding-top: 8px;
   }
 
   .history-item {
     grid-template-columns: 1fr;
+    gap: 6px;
+    padding: 12px 14px;
   }
 
-  .quote-preview-sheet {
-    padding: 24px 18px;
+  .quote-preview-scroll {
+    margin: 0 -2px;
   }
 
-  .sheet-title {
-    font-size: 28px;
+  .quote-preview-sheet,
+  .quote-page .quote-sheet {
+    width: 210mm;
+    min-width: 210mm;
+    max-width: none;
+    margin: 0;
   }
 
-  .sheet-table th,
-  .sheet-table td,
-  .sheet-basic-grid p,
-  .sheet-info-list p,
-  .sheet-period-row,
-  .sheet-reminder,
-  .sheet-company,
-  .sheet-desc,
-  .sheet-recipient,
-  .sheet-date-row {
-    font-size: 14px;
+  .result-panel {
+    padding: 14px 16px;
+  }
+
+  .upload-preview-image {
+    max-height: 220px;
+  }
+
+  .quote-page .quote-sheet-body {
+    padding: 0 5mm;
+  }
+
+  .quote-page .quote-sheet-header,
+  .quote-page .sheet-header {
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+
+  .quote-page .quote-logo {
+    width: 150px;
+  }
+
+  .quote-page .quote-sheet-title,
+  .quote-page .sheet-title {
+    font-size: 24px;
+  }
+
+  .quote-page .quote-sheet-section-title,
+  .quote-page .sheet-section-title {
+    font-size: 15px;
+  }
+
+  .quote-page .quote-sheet-paragraph,
+  .quote-page .sheet-recipient,
+  .quote-page .sheet-desc,
+  .quote-page .sheet-period-row,
+  .quote-page .sheet-reminder,
+  .quote-page .sheet-company,
+  .quote-page .sheet-basic-grid p,
+  .quote-page .sheet-info-list p,
+  .quote-page .quote-sheet-table th,
+  .quote-page .quote-sheet-table td,
+  .quote-page .sheet-table th,
+  .quote-page .sheet-table td,
+  .quote-page .quote-sheet-date,
+  .quote-page .sheet-date-row {
+    font-size: 11px;
+  }
+
+  .quote-page .quote-sheet-table th,
+  .quote-page .quote-sheet-table td,
+  .quote-page .sheet-table th,
+  .quote-page .sheet-table td {
+    padding: 4px 6px;
+  }
+
+  .quote-page .sheet-desc,
+  .quote-page .quote-sheet-section-title,
+  .quote-page .sheet-section-title,
+  .quote-page .sheet-basic-grid,
+  .quote-page .sheet-info-list,
+  .quote-page .sheet-period-row {
+    margin-left: 1.4em;
   }
 }

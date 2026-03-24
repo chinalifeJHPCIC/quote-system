@@ -1179,6 +1179,7 @@ export default function Quote() {
           )}
         </section>
 
+        <div className="quote-preview-scroll">
         <div className="quote-preview-sheet quote-sheet" ref={previewRef}>
           <div className="sheet-header quote-sheet-header">
             <img alt="中国人寿财产保险" className="quote-logo" src={excelLogo} />
@@ -1323,6 +1324,7 @@ export default function Quote() {
           </div>
           </div>
           </div>
+        </div>
         </div>
       </div>
     </div>
