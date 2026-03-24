@@ -1180,51 +1180,56 @@ export default function Quote() {
         </section>
 
         <div className="quote-preview-sheet quote-sheet" ref={previewRef}>
-          <div className="sheet-header">
+          <div className="sheet-header quote-sheet-header">
             <img alt="中国人寿财产保险" className="quote-logo" src={excelLogo} />
-            <h1 className="sheet-title">车险报价单</h1>
-            <div className="sheet-divider" />
+            <h1 className="sheet-title quote-sheet-title">车险报价单</h1>
+            <div className="sheet-divider quote-sheet-divider" />
           </div>
-          <p className="sheet-recipient">
+          <p className="sheet-recipient quote-sheet-paragraph">
             {template.insuredLabel} {getInsuredDisplayName(form)}
           </p>
-          <p className="sheet-desc">
+          <p className="sheet-desc quote-sheet-paragraph">
             感谢您选择我公司投保车辆保险，本次报价信息如下：
           </p>
 
-          <div className="sheet-section-title">一 、基本投保信息</div>
-          <div className="sheet-basic-grid">
-            <p>号牌号码：{form.plate || "新车未上牌"}</p>
-            <p>厂牌车型：{form.brandModel || form.vehicleType || "-"}</p>
-            <p>初次登记日期：{form.firstRegistrationDate || "-"}</p>
-            <p>使用性质：{form.usageNature || "-"}</p>
-            <p>核定载客：{form.approvedPassengers || "-"}</p>
-            <p>核定栽质量：{form.approvedLoad || "-"}</p>
-            <p>发动机号码：{form.engineNumber || "-"}</p>
-            <p>车辆识别代号/车架号码：{form.vin || "-"}</p>
-            <p>发票金额（小写）：{form.invoiceAmount || "-"}</p>
-          </div>
+          <section className="quote-sheet-section">
+            <div className="sheet-section-title quote-sheet-section-title">一 、基本投保信息</div>
+            <div className="sheet-basic-grid quote-table">
+              <p className="quote-row"><span className="quote-label">号牌号码：</span><span className="quote-value">{form.plate || "新车未上牌"}</span></p>
+              <p className="quote-row"><span className="quote-label">厂牌车型：</span><span className="quote-value">{form.brandModel || form.vehicleType || "-"}</span></p>
+              <p className="quote-row"><span className="quote-label">初次登记日期：</span><span className="quote-value">{form.firstRegistrationDate || "-"}</span></p>
+              <p className="quote-row"><span className="quote-label">使用性质：</span><span className="quote-value">{form.usageNature || "-"}</span></p>
+              <p className="quote-row"><span className="quote-label">核定载客：</span><span className="quote-value">{form.approvedPassengers || "-"}</span></p>
+              <p className="quote-row"><span className="quote-label">核定栽质量：</span><span className="quote-value quote-number">{form.approvedLoad || "-"}</span></p>
+              <p className="quote-row"><span className="quote-label">发动机号码：</span><span className="quote-value quote-number">{form.engineNumber || "-"}</span></p>
+              <p className="quote-row"><span className="quote-label">车辆识别代号：</span><span className="quote-value quote-number">{form.vin || "-"}</span></p>
+              <p className="quote-row"><span className="quote-label">发票金额（小写）：</span><span className="quote-value quote-money">{form.invoiceAmount || "-"}</span></p>
+            </div>
 
-          {template.includeCompulsoryPeriod ? (
-            <p className="sheet-period-row">
-              交强险保险期间：
-              {toDateTimeLabel(form.compulsoryStart, form.compulsoryEnd) || "-"}
+            {template.includeCompulsoryPeriod ? (
+              <p className="sheet-period-row quote-sheet-paragraph">
+                交强险保险期间：
+                {toDateTimeLabel(form.compulsoryStart, form.compulsoryEnd) || "-"}
+              </p>
+            ) : null}
+            <p className="sheet-period-row quote-sheet-paragraph">
+              商业险保险期间：
+              {toDateTimeLabel(form.commercialStart, form.commercialEnd) || "-"}
             </p>
-          ) : null}
-          <p className="sheet-period-row">
-            商业险保险期间：
-            {toDateTimeLabel(form.commercialStart, form.commercialEnd) || "-"}
-          </p>
+          </section>
 
-          <div className="sheet-section-title">二 、投保、出险信息</div>
-          <div className="sheet-info-list">
-            <p>交强险上年出险次数；{form.compulsoryClaims}</p>
-            <p>商业险连续承保年数：{form.continuousYears}</p>
-            <p>商业险连续承保期间出险次数：{form.continuousClaims}</p>
-          </div>
+          <section className="quote-sheet-section">
+            <div className="sheet-section-title quote-sheet-section-title">二 、投保、出险信息</div>
+            <div className="sheet-info-list">
+              <p className="quote-row"><span className="quote-label">交强险上年出险次数：</span><span className="quote-value quote-number">{form.compulsoryClaims}</span></p>
+              <p className="quote-row"><span className="quote-label">商业险连续承保年数：</span><span className="quote-value">{form.continuousYears}</span></p>
+              <p className="quote-row"><span className="quote-label">商业险连续承保期间出险次数：</span><span className="quote-value">{form.continuousClaims}</span></p>
+            </div>
+          </section>
 
-          <div className="sheet-section-title">三 、详储报价信息</div>
-          <table className="sheet-table">
+          <section className="quote-sheet-section">
+            <div className="sheet-section-title quote-sheet-section-title">三 、详细报价信息</div>
+          <table className="sheet-table quote-sheet-table">
             <thead>
               <tr>
                 <th>险种名称</th>
@@ -1240,7 +1245,7 @@ export default function Quote() {
                     <td>{item.name}</td>
                     <td>{item.deductibleRate || "/"}</td>
                     <td>{item.coverage}</td>
-                    <td>{item.premium}</td>
+                    <td className="quote-money">{item.premium}</td>
                   </tr>
                 ) : null,
               )}
@@ -1248,14 +1253,14 @@ export default function Quote() {
                 <td>商业险保费合计</td>
                 <td>/</td>
                 <td>/</td>
-                <td>{commercialTotal}</td>
+                <td className="quote-money">{commercialTotal}</td>
               </tr>
               {compulsoryItem?.enabled ? (
                 <tr>
                   <td>{compulsoryItem.name}</td>
                   <td>{compulsoryItem.deductibleRate}</td>
                   <td>{compulsoryItem.coverage}</td>
-                  <td>{compulsoryItem.premium}</td>
+                  <td className="quote-money">{compulsoryItem.premium}</td>
                 </tr>
               ) : null}
               {taxItem?.enabled ? (
@@ -1263,19 +1268,19 @@ export default function Quote() {
                   <td>{taxItem.name}</td>
                   <td>{taxItem.deductibleRate}</td>
                   <td>{taxItem.coverage}</td>
-                  <td>{taxItem.premium}</td>
+                  <td className="quote-money">{taxItem.premium}</td>
                 </tr>
               ) : null}
               <tr className="summary-row">
                 <td>车险合计</td>
                 <td>/</td>
                 <td>/</td>
-                <td>{vehicleTotal}</td>
+                <td className="quote-money">{vehicleTotal}</td>
               </tr>
             </tbody>
           </table>
 
-          <table className="sheet-table extra-table">
+          <table className="sheet-table quote-sheet-table extra-table">
             <thead>
               <tr>
                 <th>{template.extraInsuranceTitle}</th>
@@ -1290,28 +1295,31 @@ export default function Quote() {
                   <td>{row.clause}</td>
                   <td>{row.responsibility}</td>
                   <td>{row.amount}</td>
-                  <td>{index === 0 ? form.extraInsurancePremium : ""}</td>
+                  <td className="quote-money">{index === 0 ? form.extraInsurancePremium : ""}</td>
                 </tr>
               ))}
               <tr className="summary-row">
                 <td>非车险合计</td>
                 <td>/</td>
                 <td>/</td>
-                <td>{form.extraInsurancePremium}</td>
+                <td className="quote-money">{form.extraInsurancePremium}</td>
               </tr>
               <tr className="summary-row">
                 <td>合计</td>
                 <td>/</td>
                 <td>/</td>
-                <td>{grandTotal}</td>
+                <td className="quote-money quote-total">{grandTotal}</td>
               </tr>
             </tbody>
           </table>
+          </section>
 
-          <p className="sheet-reminder">{template.reminder}</p>
-          <p className="sheet-company">{template.companyLine}</p>
-          <div className="sheet-date-row">
+          <div className="quote-sheet-footer">
+          <p className="sheet-reminder quote-sheet-paragraph">{template.reminder}</p>
+          <p className="sheet-company quote-sheet-paragraph">{template.companyLine}</p>
+          <div className="sheet-date-row quote-sheet-date">
             <span>{quoteDate}</span>
+          </div>
           </div>
         </div>
       </div>
