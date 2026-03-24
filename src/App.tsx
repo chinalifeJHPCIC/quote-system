@@ -1,4 +1,5 @@
 import { Link, Route, Routes } from "react-router-dom";
+import History from "./pages/History";
 import Quote from "./pages/Quote";
 import Upload from "./pages/Upload";
 
@@ -15,6 +16,9 @@ function Home() {
           <Link className="primary-link" to="/quote">
             进入报价页
           </Link>
+          <Link className="secondary-link" to="/history">
+            报价历史
+          </Link>
           <Link className="secondary-link" to="/upload">
             证件识别
           </Link>
@@ -29,6 +33,7 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/quote" element={<Quote />} />
+      <Route path="/history" element={<History />} />
       <Route path="/upload" element={<Upload />} />
     </Routes>
   );

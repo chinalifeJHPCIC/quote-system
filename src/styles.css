@@ -268,9 +268,6 @@ input {
 
 .quote-page .sheet-period-row {
   margin-top: 2px;
-  font-size: 11px;
-  line-height: 1.4;
-  letter-spacing: 0;
 }
 
 .quote-page .sheet-info-list {
@@ -738,6 +735,15 @@ p {
   cursor: pointer;
 }
 
+.history-page-list {
+  gap: 12px;
+}
+
+.history-item-card {
+  grid-template-columns: 110px 100px minmax(120px, 1fr) minmax(120px, 1fr) 140px;
+  cursor: default;
+}
+
 .inline-checkbox {
   display: flex;
   align-items: center;
@@ -942,6 +948,10 @@ p {
     grid-template-columns: 1fr;
     gap: 6px;
     padding: 12px 14px;
+  }
+
+  .history-item-card {
+    grid-template-columns: 1fr;
   }
 
   .quote-preview-scroll {

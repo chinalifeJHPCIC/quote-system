@@ -1,15 +1,19 @@
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 
-export async function generateInsurancePDF(
-  element: HTMLElement,
-  fileName = "中国人寿报价单.pdf",
-) {
-  const canvas = await html2canvas(element, {
+async function renderQuoteCanvas(element: HTMLElement) {
+  return html2canvas(element, {
     scale: 2,
     useCORS: true,
     backgroundColor: "#ffffff",
   });
+}
+
+export async function generateInsurancePDF(
+  element: HTMLElement,
+  fileName = "中国人寿报价单.pdf",
+) {
+  const canvas = await renderQuoteCanvas(element);
 
   const imageData = canvas.toDataURL("image/png");
   const pdf = new jsPDF("p", "mm", "a4");
@@ -32,4 +36,16 @@ export async function generateInsurancePDF(
   }
 
   pdf.save(fileName);
+}
+
+export async function generateInsuranceImage(
+  element: HTMLElement,
+  fileName = "中国人寿报价单.png",
+) {
+  const canvas = await renderQuoteCanvas(element);
+  const imageData = canvas.toDataURL("image/png");
+  const link = document.createElement("a");
+  link.href = imageData;
+  link.download = fileName;
+  link.click();
 }

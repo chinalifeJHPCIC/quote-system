@@ -7,8 +7,16 @@ import {
   saveRecognizedDocument,
   type RecognizedDocument,
 } from "../utils/ocr";
-import { generateInsurancePDF } from "../utils/pdfGenerator";
-import { PROVINCES, type ProvinceName, type TruckUsageType } from "../data/pureRiskRates";
+import {
+  generateInsuranceImage,
+  generateInsurancePDF,
+} from "../utils/pdfGenerator";
+import {
+  PROVINCES,
+  type ProvinceName,
+  type TruckUsageType,
+  type TruckWeightClass,
+} from "../data/pureRiskRates";
 import {
   detectTemplateKind,
   QUOTE_TEMPLATES,
@@ -16,59 +24,15 @@ import {
   type TemplateKind,
 } from "../utils/quoteTemplates";
 import { calculateTruckQuote } from "../utils/quote";
-
-const QUOTE_HISTORY_KEY = "quote-system-history";
-const HISTORY_LIMIT = 12;
-
-type QuoteFormState = {
-  quoteDate: string;
-  quoteDateInput: string;
-  plate: string;
-  insuredName: string;
-  companyName: string;
-  brandModel: string;
-  vehicleType: string;
-  energyType: string;
-  firstRegistrationDate: string;
-  usageNature: string;
-  approvedPassengers: string;
-  approvedLoad: string;
-  engineNumber: string;
-  vin: string;
-  invoiceAmount: string;
-  province: ProvinceName;
-  usageType: TruckUsageType;
-  thirdPartyLimit: number;
-  driverLimit: number;
-  damageManualPremium: number;
-  adjustmentFactor: number;
-  expenseRate: number;
-  extraInsurancePremium: number;
-  damageCoverage: number;
-  thirdParty: number;
-  driver: number;
-  passenger: number;
-  claims: number;
-  death: boolean;
-  compulsoryClaims: number;
-  continuousYears: string;
-  continuousClaims: string;
-  compulsoryStart: string;
-  compulsoryEnd: string;
-  commercialStart: string;
-  commercialEnd: string;
-  taxPremium: number;
-  medicalOutsideCoverage: number;
-  medicalOutsidePremium: number;
-};
-
-type QuoteHistoryEntry = {
-  id: string;
-  createdAt: string;
-  templateKind: TemplateKind;
-  form: QuoteFormState;
-  items: QuoteItem[];
-};
+import {
+  clearHistoryRestoreEntry,
+  formatHistoryTime,
+  readHistoryRestoreEntry,
+  readQuoteHistory,
+  saveHistoryEntry,
+  type QuoteFormState,
+  type QuoteHistoryEntry,
+} from "../utils/quoteHistory";
 
 const initialForm: QuoteFormState = {
   quoteDate: new Date().toISOString().slice(0, 10),
@@ -88,6 +52,7 @@ const initialForm: QuoteFormState = {
   invoiceAmount: "",
   province: "河北",
   usageType: "营业",
+  weightClass: "2吨以下",
   thirdPartyLimit: 100,
   driverLimit: 100000,
   damageManualPremium: 0,
@@ -105,8 +70,10 @@ const initialForm: QuoteFormState = {
   continuousClaims: "",
   compulsoryStart: "",
   compulsoryEnd: "",
+  showCompulsoryPeriod: true,
   commercialStart: "",
   commercialEnd: "",
+  showCommercialPeriod: true,
   taxPremium: 0,
   medicalOutsideCoverage: 500000,
   medicalOutsidePremium: 400,
@@ -142,7 +109,7 @@ function buildQuoteItems(form: QuoteFormState, templateKind: TemplateKind) {
   const result = calculateTruckQuote({
     province: form.province,
     usageType: form.usageType,
-    weightClass: "2吨以下",
+    weightClass: form.weightClass,
     vehiclePrice,
     thirdPartyLimit: form.thirdPartyLimit,
     driverLimit: form.driverLimit,
@@ -210,33 +177,6 @@ function normalizeDateInput(value: string) {
     normalized: `${year}-${month}-${day}`,
     digits,
   };
-}
-
-function readQuoteHistory(): QuoteHistoryEntry[] {
-  if (typeof window === "undefined") return [];
-
-  try {
-    const raw = window.localStorage.getItem(QUOTE_HISTORY_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw) as QuoteHistoryEntry[];
-  } catch {
-    return [];
-  }
-}
-
-function writeQuoteHistory(entries: QuoteHistoryEntry[]) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(QUOTE_HISTORY_KEY, JSON.stringify(entries));
-}
-
-function formatHistoryTime(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const dd = String(date.getDate()).padStart(2, "0");
-  const hh = String(date.getHours()).padStart(2, "0");
-  const mi = String(date.getMinutes()).padStart(2, "0");
-  return `${mm}-${dd} ${hh}:${mi}`;
 }
 
 function formatDateToCompact(date: Date) {
@@ -358,7 +298,7 @@ export default function Quote() {
     return calculateTruckQuote({
       province: form.province,
       usageType: form.usageType,
-      weightClass: "2吨以下",
+      weightClass: form.weightClass,
       vehiclePrice,
       thirdPartyLimit: form.thirdPartyLimit,
       driverLimit: form.driverLimit,
@@ -378,6 +318,7 @@ export default function Quote() {
     form.invoiceAmount,
     form.province,
     form.thirdPartyLimit,
+    form.weightClass,
     form.usageType,
     form.adjustmentFactor,
   ]);
@@ -468,11 +409,7 @@ export default function Quote() {
       items: nextItems,
     };
 
-    setHistory((current) => {
-      const nextHistory = [entry, ...current].slice(0, HISTORY_LIMIT);
-      writeQuoteHistory(nextHistory);
-      return nextHistory;
-    });
+    setHistory(saveHistoryEntry(entry));
   };
 
   const handleTodayDate = () => {
@@ -519,6 +456,10 @@ export default function Quote() {
     setTemplateKind(templateKind);
     setItems(nextItems);
     saveHistory(form, nextItems, templateKind);
+  };
+
+  const handleSaveCurrentQuote = () => {
+    saveHistory(form, items, templateKind);
   };
 
   const handleTemplateSwitch = (nextKind: TemplateKind) => {
@@ -574,6 +515,13 @@ export default function Quote() {
   }, [uploadPreviewUrl]);
 
   useEffect(() => {
+    const restoreEntry = readHistoryRestoreEntry();
+    if (restoreEntry) {
+      handleHistoryImport(restoreEntry);
+      clearHistoryRestoreEntry();
+      return;
+    }
+
     const recognized = readRecognizedDocument();
     if (!recognized) return;
     setLastRecognized(recognized);
@@ -601,6 +549,11 @@ export default function Quote() {
     await generateInsurancePDF(previewRef.current);
   };
 
+  const handleExportImage = async () => {
+    if (!previewRef.current) return;
+    await generateInsuranceImage(previewRef.current);
+  };
+
   const handleHistoryImport = (entry: QuoteHistoryEntry) => {
     formRef.current = entry.form;
     setForm(entry.form);
@@ -623,6 +576,9 @@ export default function Quote() {
           <div className="action-row">
             <Link className="secondary-link" to="/">
               返回首页
+            </Link>
+            <Link className="secondary-link" to="/history">
+              报价历史
             </Link>
             <Link className="secondary-link" to="/upload">
               OCR 调试页
@@ -869,6 +825,22 @@ export default function Quote() {
               </label>
 
               <label>
+                <span>吨位</span>
+                <select
+                  value={form.weightClass}
+                  onChange={(e) =>
+                    updateForm("weightClass", e.target.value as TruckWeightClass)
+                  }
+                >
+                  <option value="2吨以下">2吨以下</option>
+                  <option value="2-5吨">2-5吨</option>
+                  <option value="5-10吨">5-10吨</option>
+                  <option value="10吨以上">10吨以上</option>
+                  <option value="低速载货汽车">低速载货汽车</option>
+                </select>
+              </label>
+
+              <label>
                 <span>车损保额</span>
                 <input
                   type="number"
@@ -1014,6 +986,16 @@ export default function Quote() {
                     }
                   />
                 </div>
+                <div className="inline-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={form.showCompulsoryPeriod}
+                    onChange={(e) =>
+                      updateForm("showCompulsoryPeriod", e.target.checked)
+                    }
+                  />
+                  <span>报价单显示</span>
+                </div>
               </label>
 
               <label>
@@ -1050,6 +1032,16 @@ export default function Quote() {
                       updateForm("commercialStart", normalizeCompactDate(e.target.value))
                     }
                   />
+                </div>
+                <div className="inline-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={form.showCommercialPeriod}
+                    onChange={(e) =>
+                      updateForm("showCommercialPeriod", e.target.checked)
+                    }
+                  />
+                  <span>报价单显示</span>
                 </div>
               </label>
 
@@ -1108,6 +1100,9 @@ export default function Quote() {
             </label>
 
             <div className="action-row">
+              <button className="secondary-link" onClick={handleSaveCurrentQuote}>
+                保存当前报价
+              </button>
               <button className="primary-button" onClick={handleCalculate}>
                 重新计算
               </button>
@@ -1166,9 +1161,14 @@ export default function Quote() {
         <section className="editor-panel quote-panel">
           <div className="section-header-row">
             <h2 className="quote-section-title">险种映射</h2>
-            <button className="secondary-link" onClick={handleExportPdf}>
-              导出报价单 PDF
-            </button>
+            <div className="action-row">
+              <button className="secondary-link" onClick={handleExportImage}>
+                导出报价单图片
+              </button>
+              <button className="secondary-link" onClick={handleExportPdf}>
+                导出报价单 PDF
+              </button>
+            </div>
           </div>
           <div className="result-grid">
             {items.map((item, index) => (
@@ -1217,7 +1217,12 @@ export default function Quote() {
         </section>
 
         <section className="editor-panel quote-panel">
-          <h2 className="quote-section-title">报价历史</h2>
+          <div className="section-header-row">
+            <h2 className="quote-section-title">报价历史</h2>
+            <Link className="secondary-link" to="/history">
+              查看全部历史
+            </Link>
+          </div>
           {history.length ? (
             <div className="history-list">
               {history.map((entry) => (
@@ -1269,16 +1274,18 @@ export default function Quote() {
               <p className="quote-row"><span className="quote-label">车辆识别代号：</span><span className="quote-value quote-number">{form.vin || "-"}</span></p>
             </div>
 
-            {template.includeCompulsoryPeriod ? (
+            {template.includeCompulsoryPeriod && form.showCompulsoryPeriod ? (
               <p className="sheet-period-row quote-sheet-paragraph">
                 交强险保险期间：
                 {toDateTimeLabel(form.compulsoryStart, form.compulsoryEnd) || "-"}
               </p>
             ) : null}
-            <p className="sheet-period-row quote-sheet-paragraph">
-              商业险保险期间：
-              {toDateTimeLabel(form.commercialStart, form.commercialEnd) || "-"}
-            </p>
+            {form.showCommercialPeriod ? (
+              <p className="sheet-period-row quote-sheet-paragraph">
+                商业险保险期间：
+                {toDateTimeLabel(form.commercialStart, form.commercialEnd) || "-"}
+              </p>
+            ) : null}
           </section>
 
           <section className="quote-sheet-section">
