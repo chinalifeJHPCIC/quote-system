@@ -316,6 +316,7 @@ function mergeRecognizedForm(
 export default function Quote() {
   const previewRef = useRef<HTMLDivElement | null>(null);
   const [form, setForm] = useState<QuoteFormState>(initialForm);
+  const formRef = useRef<QuoteFormState>(initialForm);
   const [templateKind, setTemplateKind] = useState<TemplateKind>("机动车");
   const [items, setItems] = useState<QuoteItem[]>(
     buildQuoteItems(initialForm, "机动车"),
@@ -323,6 +324,7 @@ export default function Quote() {
   const [isRecognizing, setIsRecognizing] = useState(false);
   const [ocrError, setOcrError] = useState("");
   const [ocrRaw, setOcrRaw] = useState("");
+  const [lastRecognized, setLastRecognized] = useState<RecognizedDocument | null>(null);
   const [history, setHistory] = useState<QuoteHistoryEntry[]>(() => readQuoteHistory());
 
   const template = QUOTE_TEMPLATES[templateKind];
@@ -378,7 +380,42 @@ export default function Quote() {
     key: K,
     value: QuoteFormState[K],
   ) => {
-    setForm((current) => ({ ...current, [key]: value }));
+    setForm((current) => {
+      const next = { ...current, [key]: value };
+      formRef.current = next;
+      return next;
+    });
+  };
+
+  const hasImportableRecognizedFields = (recognized: RecognizedDocument) =>
+    [
+      recognized.plate,
+      recognized.name,
+      recognized.companyName,
+      recognized.brandModel,
+      recognized.vehicleType,
+      recognized.firstRegistrationDate,
+      recognized.approvedPassengers,
+      recognized.approvedLoad,
+      recognized.engineNumber,
+      recognized.vin,
+      recognized.invoiceAmount,
+    ].some(Boolean);
+
+  const applyRecognizedDocument = (
+    recognized: RecognizedDocument,
+    options?: { replaceWithInitial?: boolean },
+  ) => {
+    if (!hasImportableRecognizedFields(recognized)) return;
+
+    const baseForm = options?.replaceWithInitial ? initialForm : formRef.current;
+    const nextForm = mergeRecognizedForm(baseForm, recognized);
+    const nextKind = detectTemplateKind(recognized);
+
+    formRef.current = nextForm;
+    setForm(nextForm);
+    syncTemplate(nextForm, nextKind);
+    setOcrRaw(JSON.stringify(recognized, null, 2));
   };
 
   const saveHistory = (
@@ -472,12 +509,8 @@ export default function Quote() {
     try {
       const recognized = await recognize(file);
       saveRecognizedDocument(recognized);
-      setOcrRaw(JSON.stringify(recognized, null, 2));
-      const nextForm = mergeRecognizedForm(form, recognized);
-
-      const nextKind = detectTemplateKind(recognized);
-      setForm(nextForm);
-      syncTemplate(nextForm, nextKind);
+      setLastRecognized(recognized);
+      applyRecognizedDocument(recognized);
     } catch (error) {
       setOcrError(
         error instanceof Error ? error.message : "OCR 识别失败，请稍后再试。",
@@ -488,31 +521,14 @@ export default function Quote() {
   };
 
   useEffect(() => {
+    formRef.current = form;
+  }, [form]);
+
+  useEffect(() => {
     const recognized = readRecognizedDocument();
     if (!recognized) return;
-
-    const hasImportableField = [
-      recognized.plate,
-      recognized.name,
-      recognized.companyName,
-      recognized.brandModel,
-      recognized.vehicleType,
-      recognized.firstRegistrationDate,
-      recognized.approvedPassengers,
-      recognized.approvedLoad,
-      recognized.engineNumber,
-      recognized.vin,
-      recognized.invoiceAmount,
-    ].some(Boolean);
-
-    if (!hasImportableField) return;
-
-    const nextForm = mergeRecognizedForm(initialForm, recognized);
-    const nextKind = detectTemplateKind(recognized);
-    setForm(nextForm);
-    setTemplateKind(nextKind);
-    setItems(buildQuoteItems(nextForm, nextKind));
-    setOcrRaw(JSON.stringify(recognized, null, 2));
+    setLastRecognized(recognized);
+    applyRecognizedDocument(recognized, { replaceWithInitial: true });
   }, []);
 
   const handleExportPdf = async () => {
@@ -574,6 +590,18 @@ export default function Quote() {
                 ? "识别中，系统会自动判断新能源 / 机动车 / 特种车。"
                 : "上传报价图、行驶证或证件后，自动回填字段并选择车辆类型。"}
             </p>
+
+            {lastRecognized ? (
+              <div className="action-row">
+                <button
+                  className="secondary-link"
+                  onClick={() => applyRecognizedDocument(lastRecognized)}
+                  type="button"
+                >
+                  导入识别结果
+                </button>
+              </div>
+            ) : null}
 
             <div className="form-grid">
               <label>
