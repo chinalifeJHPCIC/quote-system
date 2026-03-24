@@ -1,5 +1,7 @@
 import Tesseract from "tesseract.js";
 
+export const OCR_IMPORT_STORAGE_KEY = "quote-system-last-ocr";
+
 export type RecognizedDocument = {
   plate?: string;
   vehicleType?: string;
@@ -238,4 +240,20 @@ export async function recognizeDocument(file: File) {
 export async function recognize(file: File): Promise<RecognizedDocument> {
   const text = await recognizeDocument(file);
   return parseTraditionalOcrText(text);
+}
+
+export function saveRecognizedDocument(data: RecognizedDocument) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(OCR_IMPORT_STORAGE_KEY, JSON.stringify(data));
+}
+
+export function readRecognizedDocument(): RecognizedDocument | null {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = window.localStorage.getItem(OCR_IMPORT_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as RecognizedDocument) : null;
+  } catch {
+    return null;
+  }
 }

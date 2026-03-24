@@ -1,6 +1,6 @@
 import { useState, type ChangeEvent } from "react";
 import { Link } from "react-router-dom";
-import { recognize } from "../utils/ocr";
+import { recognize, saveRecognizedDocument } from "../utils/ocr";
 
 export default function Upload() {
   const [isLoading, setIsLoading] = useState(false);
@@ -17,6 +17,7 @@ export default function Upload() {
 
     try {
       const nextResult = await recognize(file);
+      saveRecognizedDocument(nextResult);
       setResult(JSON.stringify(nextResult, null, 2));
     } catch (err) {
       const message =

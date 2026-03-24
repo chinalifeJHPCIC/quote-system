@@ -1,7 +1,12 @@
-import { useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { Link } from "react-router-dom";
 import excelLogo from "../assets/excel-logo.png";
-import { recognize, type RecognizedDocument } from "../utils/ocr";
+import {
+  readRecognizedDocument,
+  recognize,
+  saveRecognizedDocument,
+  type RecognizedDocument,
+} from "../utils/ocr";
 import { generateInsurancePDF } from "../utils/pdfGenerator";
 import { calculateQuote } from "../utils/quoteEngine";
 import {
@@ -398,6 +403,7 @@ export default function Quote() {
 
     try {
       const recognized = await recognize(file);
+      saveRecognizedDocument(recognized);
       setOcrRaw(JSON.stringify(recognized, null, 2));
       const nextForm = mergeRecognizedForm(form, recognized);
 
@@ -412,6 +418,31 @@ export default function Quote() {
       setIsRecognizing(false);
     }
   };
+
+  useEffect(() => {
+    const recognized = readRecognizedDocument();
+    if (!recognized) return;
+
+    const hasImportableField = [
+      recognized.plate,
+      recognized.name,
+      recognized.companyName,
+      recognized.brandModel,
+      recognized.vehicleType,
+      recognized.firstRegistrationDate,
+      recognized.approvedPassengers,
+      recognized.approvedLoad,
+    ].some(Boolean);
+
+    if (!hasImportableField) return;
+
+    const nextForm = mergeRecognizedForm(initialForm, recognized);
+    const nextKind = detectTemplateKind(recognized);
+    setForm(nextForm);
+    setTemplateKind(nextKind);
+    setItems(buildQuoteItems(nextForm, nextKind));
+    setOcrRaw(JSON.stringify(recognized, null, 2));
+  }, []);
 
   const handleExportPdf = async () => {
     if (!previewRef.current) return;
