@@ -35,7 +35,7 @@ export default function Upload() {
             <p className="eyebrow">OCR</p>
             <h1>证件识别</h1>
             <p className="intro">
-              上传行驶证、身份证或营业执照，调用 OpenRouter 返回 JSON 识别结果。
+              上传行驶证、身份证或营业执照，使用传统 OCR 提取文字并映射成 JSON。
             </p>
           </div>
           <Link className="secondary-link" to="/">
@@ -53,7 +53,7 @@ export default function Upload() {
         <p className="status-text">
           {isLoading
             ? "识别中..."
-            : "请确保已配置 VITE_OPENROUTER_API_KEY。"}
+            : "当前优先使用浏览器端传统 OCR，无需模型 API Key。"}
         </p>
 
         {error ? <div className="result-block">{error}</div> : null}

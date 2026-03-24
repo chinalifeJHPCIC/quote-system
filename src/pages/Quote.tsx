@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState, type ChangeEvent } from "react";
 import { Link } from "react-router-dom";
 import excelLogo from "../assets/excel-logo.png";
-import { recognize } from "../utils/ocr";
+import { recognize, type RecognizedDocument } from "../utils/ocr";
 import { generateInsurancePDF } from "../utils/pdfGenerator";
 import { calculateQuote } from "../utils/quoteEngine";
 import {
@@ -10,6 +10,9 @@ import {
   type QuoteItem,
   type TemplateKind,
 } from "../utils/quoteTemplates";
+
+const QUOTE_HISTORY_KEY = "quote-system-history";
+const HISTORY_LIMIT = 12;
 
 type QuoteFormState = {
   quoteDate: string;
@@ -40,6 +43,14 @@ type QuoteFormState = {
   taxPremium: number;
   medicalOutsideCoverage: number;
   medicalOutsidePremium: number;
+};
+
+type QuoteHistoryEntry = {
+  id: string;
+  createdAt: string;
+  templateKind: TemplateKind;
+  form: QuoteFormState;
+  items: QuoteItem[];
 };
 
 const initialForm: QuoteFormState = {
@@ -77,7 +88,7 @@ const TEMPLATE_TABS: TemplateKind[] = ["机动车", "新能源", "特种车"];
 
 function toDateTimeLabel(start: string, end: string) {
   if (!start || !end) return "";
-  return `  自 ${start}00时00分起 至 ${end}23时59分 止`;
+  return `  自 ${formatCompactDate(start)}00时00分起 至 ${formatCompactDate(end)}23时59分 止`;
 }
 
 function getVehiclePremiumTotal(items: QuoteItem[]) {
@@ -137,6 +148,17 @@ function formatQuoteDate(value: string) {
   return `${year}年${month}月${day}日`;
 }
 
+function formatCompactDate(value: string) {
+  if (!value) return "";
+  const digits = value.replace(/\D/g, "");
+  if (digits.length !== 8) return value;
+  return `${digits.slice(0, 4)}年${digits.slice(4, 6)}月${digits.slice(6, 8)}日`;
+}
+
+function normalizeCompactDate(value: string) {
+  return value.replace(/\D/g, "").slice(0, 8);
+}
+
 function normalizeDateInput(value: string) {
   const digits = value.replace(/\D/g, "").slice(0, 8);
   if (digits.length !== 8) {
@@ -156,6 +178,81 @@ function normalizeDateInput(value: string) {
   };
 }
 
+function readQuoteHistory(): QuoteHistoryEntry[] {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const raw = window.localStorage.getItem(QUOTE_HISTORY_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) as QuoteHistoryEntry[];
+  } catch {
+    return [];
+  }
+}
+
+function writeQuoteHistory(entries: QuoteHistoryEntry[]) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(QUOTE_HISTORY_KEY, JSON.stringify(entries));
+}
+
+function formatHistoryTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  const hh = String(date.getHours()).padStart(2, "0");
+  const mi = String(date.getMinutes()).padStart(2, "0");
+  return `${mm}-${dd} ${hh}:${mi}`;
+}
+
+function normalizeRecognizedDate(value: string) {
+  if (!value) return "";
+  const digits = value.replace(/\D/g, "");
+  if (digits.length !== 8) return value.trim();
+  return `${digits.slice(0, 4)}年${digits.slice(4, 6)}月${digits.slice(6, 8)}日`;
+}
+
+function normalizeRecognizedText(value: string) {
+  return value.trim();
+}
+
+function mergeRecognizedForm(
+  current: QuoteFormState,
+  recognized: RecognizedDocument,
+): QuoteFormState {
+  return {
+    ...current,
+    plate: normalizeRecognizedText(recognized.plate || current.plate),
+    insuredName: normalizeRecognizedText(
+      recognized.name || current.insuredName,
+    ),
+    companyName: normalizeRecognizedText(
+      recognized.companyName || current.companyName,
+    ),
+    brandModel: normalizeRecognizedText(
+      recognized.brandModel || current.brandModel,
+    ),
+    vehicleType: normalizeRecognizedText(
+      recognized.vehicleType || current.vehicleType,
+    ),
+    energyType: normalizeRecognizedText(
+      recognized.energyType || current.energyType,
+    ),
+    firstRegistrationDate: normalizeRecognizedDate(
+      recognized.firstRegistrationDate || current.firstRegistrationDate,
+    ),
+    usageNature: normalizeRecognizedText(
+      recognized.usageNature || current.usageNature,
+    ),
+    approvedPassengers: normalizeRecognizedText(
+      recognized.approvedPassengers || current.approvedPassengers,
+    ),
+    approvedLoad: normalizeRecognizedText(
+      recognized.approvedLoad || current.approvedLoad,
+    ),
+  };
+}
+
 export default function Quote() {
   const previewRef = useRef<HTMLDivElement | null>(null);
   const [form, setForm] = useState<QuoteFormState>(initialForm);
@@ -166,6 +263,7 @@ export default function Quote() {
   const [isRecognizing, setIsRecognizing] = useState(false);
   const [ocrError, setOcrError] = useState("");
   const [ocrRaw, setOcrRaw] = useState("");
+  const [history, setHistory] = useState<QuoteHistoryEntry[]>(() => readQuoteHistory());
 
   const template = QUOTE_TEMPLATES[templateKind];
 
@@ -189,6 +287,24 @@ export default function Quote() {
     value: QuoteFormState[K],
   ) => {
     setForm((current) => ({ ...current, [key]: value }));
+  };
+
+  const saveHistory = (
+    nextForm: QuoteFormState,
+    nextItems: QuoteItem[],
+    nextTemplateKind: TemplateKind,
+  ) => {
+    const entry: QuoteHistoryEntry = {
+      id: `${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      templateKind: nextTemplateKind,
+      form: nextForm,
+      items: nextItems,
+    };
+
+    const nextHistory = [entry, ...history].slice(0, HISTORY_LIMIT);
+    setHistory(nextHistory);
+    writeQuoteHistory(nextHistory);
   };
 
   const handleTodayDate = () => {
@@ -219,7 +335,10 @@ export default function Quote() {
   };
 
   const handleCalculate = () => {
-    syncTemplate(form, templateKind);
+    const nextItems = buildQuoteItems(form, templateKind);
+    setTemplateKind(templateKind);
+    setItems(nextItems);
+    saveHistory(form, nextItems, templateKind);
   };
 
   const handleTemplateSwitch = (nextKind: TemplateKind) => {
@@ -249,22 +368,7 @@ export default function Quote() {
     try {
       const recognized = await recognize(file);
       setOcrRaw(JSON.stringify(recognized, null, 2));
-
-      const nextForm: QuoteFormState = {
-        ...form,
-        plate: recognized.plate || form.plate,
-        insuredName: recognized.name || form.insuredName,
-        companyName: recognized.companyName || form.companyName,
-        brandModel: recognized.brandModel || form.brandModel,
-        vehicleType: recognized.vehicleType || form.vehicleType,
-        energyType: recognized.energyType || form.energyType,
-        firstRegistrationDate:
-          recognized.firstRegistrationDate || form.firstRegistrationDate,
-        usageNature: recognized.usageNature || form.usageNature,
-        approvedPassengers:
-          recognized.approvedPassengers || form.approvedPassengers,
-        approvedLoad: recognized.approvedLoad || form.approvedLoad,
-      };
+      const nextForm = mergeRecognizedForm(form, recognized);
 
       const nextKind = detectTemplateKind(recognized);
       setForm(nextForm);
@@ -281,6 +385,12 @@ export default function Quote() {
   const handleExportPdf = async () => {
     if (!previewRef.current) return;
     await generateInsurancePDF(previewRef.current);
+  };
+
+  const handleHistoryImport = (entry: QuoteHistoryEntry) => {
+    setForm(entry.form);
+    setTemplateKind(entry.templateKind);
+    setItems(entry.items);
   };
 
   return (
@@ -542,8 +652,12 @@ export default function Quote() {
                 <span>交强险起期</span>
                 <input
                   type="text"
+                  inputMode="numeric"
+                  placeholder="yyyymmdd"
                   value={form.compulsoryStart}
-                  onChange={(e) => updateForm("compulsoryStart", e.target.value)}
+                  onChange={(e) =>
+                    updateForm("compulsoryStart", normalizeCompactDate(e.target.value))
+                  }
                 />
               </label>
 
@@ -551,8 +665,12 @@ export default function Quote() {
                 <span>交强险止期</span>
                 <input
                   type="text"
+                  inputMode="numeric"
+                  placeholder="yyyymmdd"
                   value={form.compulsoryEnd}
-                  onChange={(e) => updateForm("compulsoryEnd", e.target.value)}
+                  onChange={(e) =>
+                    updateForm("compulsoryEnd", normalizeCompactDate(e.target.value))
+                  }
                 />
               </label>
 
@@ -560,8 +678,12 @@ export default function Quote() {
                 <span>商业险起期</span>
                 <input
                   type="text"
+                  inputMode="numeric"
+                  placeholder="yyyymmdd"
                   value={form.commercialStart}
-                  onChange={(e) => updateForm("commercialStart", e.target.value)}
+                  onChange={(e) =>
+                    updateForm("commercialStart", normalizeCompactDate(e.target.value))
+                  }
                 />
               </label>
 
@@ -569,8 +691,12 @@ export default function Quote() {
                 <span>商业险止期</span>
                 <input
                   type="text"
+                  inputMode="numeric"
+                  placeholder="yyyymmdd"
                   value={form.commercialEnd}
-                  onChange={(e) => updateForm("commercialEnd", e.target.value)}
+                  onChange={(e) =>
+                    updateForm("commercialEnd", normalizeCompactDate(e.target.value))
+                  }
                 />
               </label>
 
@@ -619,15 +745,17 @@ export default function Quote() {
               <button className="primary-button" onClick={handleCalculate}>
                 重新计算
               </button>
-              <button className="secondary-link" onClick={handleExportPdf}>
-                导出中文 PDF
-              </button>
             </div>
           </section>
         </div>
 
         <section className="editor-panel">
-          <h2>险种映射</h2>
+          <div className="section-header-row">
+            <h2>险种映射</h2>
+            <button className="secondary-link" onClick={handleExportPdf}>
+              导出报价单 PDF
+            </button>
+          </div>
           <div className="result-grid">
             {items.map((item, index) => (
               <div className="quote-item-card" key={item.id}>
@@ -672,6 +800,31 @@ export default function Quote() {
               </div>
             ))}
           </div>
+        </section>
+
+        <section className="editor-panel">
+          <h2>报价历史</h2>
+          {history.length ? (
+            <div className="history-list">
+              {history.map((entry) => (
+                <button
+                  key={entry.id}
+                  className="history-item"
+                  onClick={() => handleHistoryImport(entry)}
+                  type="button"
+                >
+                  <span>{formatHistoryTime(entry.createdAt)}</span>
+                  <span>{entry.templateKind}</span>
+                  <span>{entry.form.plate || "未识别车牌"}</span>
+                  <span>{getInsuredDisplayName(entry.form)}</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="status-text">
+              点击“重新计算”后会自动保存历史，可一键导入。
+            </p>
+          )}
         </section>
 
         <div className="quote-preview-sheet" ref={previewRef}>

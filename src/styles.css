@@ -125,6 +125,14 @@ p {
   border: 1px solid rgba(70, 52, 22, 0.1);
 }
 
+.section-header-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
 .primary-link,
 .secondary-link,
 .primary-button {
@@ -276,6 +284,25 @@ p {
   word-break: break-word;
 }
 
+.history-list {
+  display: grid;
+  gap: 10px;
+}
+
+.history-item {
+  display: grid;
+  grid-template-columns: 110px 100px minmax(120px, 1fr) minmax(120px, 1fr);
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(107, 114, 128, 0.2);
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+
 .inline-checkbox {
   display: flex;
   align-items: center;
@@ -419,6 +446,10 @@ p {
   .editor-grid,
   .sheet-basic-grid,
   .date-control-group {
+    grid-template-columns: 1fr;
+  }
+
+  .history-item {
     grid-template-columns: 1fr;
   }
 

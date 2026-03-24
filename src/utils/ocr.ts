@@ -1,3 +1,5 @@
+import Tesseract from "tesseract.js";
+
 export type RecognizedDocument = {
   plate?: string;
   vehicleType?: string;
@@ -13,162 +15,198 @@ export type RecognizedDocument = {
   raw?: string;
 };
 
-type OpenRouterResponse = {
-  choices?: Array<{
-    message?: {
-      content?: string;
-    };
-  }>;
-};
+function compactText(text: string) {
+  return text.replace(/\s+/g, "");
+}
 
-type OpenRouterErrorPayload = {
-  error?: {
-    message?: string;
-    code?: number | string;
-    metadata?: Record<string, unknown>;
-  };
-};
+function normalizeLine(line: string) {
+  return line.replace(/\s+/g, " ").trim();
+}
 
-function getOpenRouterConfig() {
-  const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
-  const model =
-    import.meta.env.VITE_OPENROUTER_MODEL || "openai/gpt-4o-mini";
+function getNormalizedLines(text: string) {
+  return text
+    .split(/\r?\n/)
+    .map((line) => normalizeLine(line))
+    .filter(Boolean);
+}
 
-  if (!apiKey) {
-    throw new Error(
-      "缺少 VITE_OPENROUTER_API_KEY。请在启动 dev/build 的终端中先 export 再运行。",
-    );
+function matchFirst(text: string, patterns: RegExp[]) {
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match?.[1]) return match[1].trim();
   }
+  return "";
+}
+
+function matchLineValue(lines: string[], labels: string[]) {
+  for (const line of lines) {
+    for (const label of labels) {
+      const index = line.indexOf(label);
+      if (index >= 0) {
+        const value = line.slice(index + label.length).replace(/^[:：]\s*/, "").trim();
+        if (value) return value;
+      }
+    }
+  }
+  return "";
+}
+
+function normalizeDate(raw: string) {
+  if (!raw) return "";
+  const digits = raw.replace(/[^\d]/g, "");
+  if (digits.length !== 8) return raw.trim();
+
+  const year = digits.slice(0, 4);
+  const month = digits.slice(4, 6);
+  const day = digits.slice(6, 8);
+  return `${year}年${month}月${day}日`;
+}
+
+function normalizePlate(raw: string) {
+  if (!raw) return "";
+  return raw.replace(/[^A-Z0-9\u4e00-\u9fa5]/gi, "").toUpperCase();
+}
+
+function normalizeNumeric(raw: string) {
+  if (!raw) return "";
+  const value = raw.replace(/[^\d.]/g, "");
+  return value;
+}
+
+function detectTemplateType(text: string): RecognizedDocument["templateType"] {
+  const source = compactText(text);
+
+  if (
+    source.includes("新能源") ||
+    source.includes("纯电") ||
+    source.includes("插电") ||
+    source.includes("增程")
+  ) {
+    return "新能源";
+  }
+
+  if (
+    source.includes("特种车") ||
+    source.includes("专项作业") ||
+    source.includes("清障") ||
+    source.includes("救援")
+  ) {
+    return "特种车";
+  }
+
+  return "机动车";
+}
+
+function parseTraditionalOcrText(text: string): RecognizedDocument {
+  const source = compactText(text);
+  const lines = getNormalizedLines(text);
+
+  const plate = normalizePlate(
+    matchLineValue(lines, ["号牌号码", "车牌号码", "车牌号"]) ||
+      matchFirst(source, [
+        /号牌号码[:：]?([A-Z\u4e00-\u9fa5][A-Z][A-Z0-9]{5,6})/i,
+        /车牌[号码]{1,2}[:：]?([A-Z\u4e00-\u9fa5][A-Z][A-Z0-9]{5,6})/i,
+      ]),
+  );
+
+  const brandModel =
+    matchLineValue(lines, ["厂牌车型", "厂牌型号"]) ||
+    matchFirst(source, [
+      /厂牌车型[:：]?(.{4,80}?)(?:初次登记日期|使用性质|核定载客|核定[载栽]质量|商业险|交强险|二、|三、)/,
+      /厂牌型号[:：]?(.{4,80}?)(?:初次登记日期|使用性质|核定载客|核定[载栽]质量|商业险|交强险|二、|三、)/,
+    ]);
+
+  const vehicleType =
+    matchLineValue(lines, ["车辆类型", "车型"]) ||
+    matchFirst(source, [
+      /车辆类型[:：]?(.{2,40}?)(?:厂牌|初次登记日期|使用性质|核定载客|核定[载栽]质量|商业险|交强险|二、|三、)/,
+      /车型[:：]?(.{2,40}?)(?:厂牌|初次登记日期|使用性质|核定载客|核定[载栽]质量|商业险|交强险|二、|三、)/,
+    ]) ||
+    brandModel;
+
+  const firstRegistrationDate = normalizeDate(
+    matchLineValue(lines, ["初次登记日期", "注册日期"]) ||
+    matchFirst(source, [
+      /初次登记日期[:：]?([0-9]{4}[年\-\/.][0-9]{1,2}[月\-\/.][0-9]{1,2}日?)/,
+      /注册日期[:：]?([0-9]{4}[年\-\/.][0-9]{1,2}[月\-\/.][0-9]{1,2}日?)/,
+    ]),
+  );
+
+  const usageNature =
+    matchLineValue(lines, ["使用性质", "性质"]) ||
+    matchFirst(source, [
+      /使用性质[:：]?([\u4e00-\u9fa5]{2,12})/,
+      /性质[:：]?([\u4e00-\u9fa5]{2,12})/,
+    ]);
+
+  const approvedPassengers = normalizeNumeric(
+    matchLineValue(lines, ["核定载客", "准乘人数"]) ||
+      matchFirst(source, [
+        /核定载客[:：]?([0-9]{1,3})/,
+        /准乘人数[:：]?([0-9]{1,3})/,
+      ]),
+  );
+
+  const approvedLoad = normalizeNumeric(
+    matchLineValue(lines, ["核定载质量", "核定栽质量", "总质量"]) ||
+      matchFirst(source, [
+        /核定[载栽]质量[:：]?([0-9.]{1,10})/,
+        /总质量[:：]?([0-9.]{1,10})/,
+      ]),
+  );
+
+  const companyName =
+    matchLineValue(lines, ["公司名称", "名称"]) ||
+    matchFirst(source, [
+      /公司名称[:：]?([\u4e00-\u9fa5A-Za-z0-9（）()·]{4,60})/,
+      /名称[:：]?([\u4e00-\u9fa5A-Za-z0-9（）()·]{4,60}(?:公司|中心|商行|工厂|店))/,
+      /尊敬的([\u4e00-\u9fa5A-Za-z0-9（）()·]{2,60}(?:公司|中心|商行|工厂|店))/,
+    ]);
+
+  const name =
+    matchLineValue(lines, ["姓名", "被保险人"]) ||
+    matchFirst(source, [
+      /姓名[:：]?([\u4e00-\u9fa5·]{2,12})/,
+      /被保险人[:：]?([\u4e00-\u9fa5·]{2,12})/,
+      /尊敬的([\u4e00-\u9fa5·]{2,12})/,
+    ]);
+
+  const energyType =
+    source.includes("新能源") || source.includes("纯电")
+      ? "新能源"
+      : source.includes("燃油")
+        ? "燃油"
+        : "";
 
   return {
-    apiKey,
-    model,
-    maxTokens: Number(import.meta.env.VITE_OPENROUTER_MAX_TOKENS || "1200"),
-    baseUrl:
-      import.meta.env.VITE_OPENROUTER_BASE_URL ||
-      "https://openrouter.ai/api/v1",
-    appName: import.meta.env.VITE_OPENROUTER_APP_NAME || "quote-system",
-    siteUrl: import.meta.env.VITE_OPENROUTER_SITE_URL || window.location.origin,
+    plate,
+    vehicleType,
+    brandModel,
+    energyType,
+    name: companyName ? "" : name,
+    companyName,
+    firstRegistrationDate,
+    usageNature,
+    approvedPassengers,
+    approvedLoad,
+    templateType: detectTemplateType(source),
+    raw: text.trim(),
   };
-}
-
-async function toBase64(file: File) {
-  return await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onload = () => {
-      const result = reader.result;
-
-      if (typeof result !== "string") {
-        reject(new Error("文件读取失败。"));
-        return;
-      }
-
-      const [, base64 = ""] = result.split(",");
-      resolve(base64);
-    };
-
-    reader.onerror = () => reject(new Error("文件读取失败。"));
-    reader.readAsDataURL(file);
-  });
-}
-
-function extractJsonBlock(text: string) {
-  const fencedMatch = text.match(/```json\s*([\s\S]*?)```/i);
-  if (fencedMatch?.[1]) return fencedMatch[1].trim();
-
-  const objectMatch = text.match(/\{[\s\S]*\}/);
-  return objectMatch?.[0]?.trim() ?? text.trim();
-}
-
-function getOpenRouterErrorMessage(status: number, payload?: OpenRouterErrorPayload) {
-  const apiMessage = payload?.error?.message?.trim();
-  if (apiMessage) {
-    return `OpenRouter 调用失败: ${apiMessage}`;
-  }
-
-  if (status === 401) {
-    return "OpenRouter 鉴权失败，请检查 VITE_OPENROUTER_API_KEY 是否正确。";
-  }
-
-  if (status === 402) {
-    return "OpenRouter 调用失败：当前账号额度不足或计费未开通，请检查 credits / billing。";
-  }
-
-  if (status === 429) {
-    return "OpenRouter 调用过于频繁，请稍后重试。";
-  }
-
-  return `OpenRouter 调用失败: ${status}`;
 }
 
 export async function recognizeDocument(file: File) {
-  const config = getOpenRouterConfig();
-  const base64 = await toBase64(file);
-  const imageUrl = `data:${file.type || "application/octet-stream"};base64,${base64}`;
-
-  const response = await fetch(`${config.baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${config.apiKey}`,
-      "Content-Type": "application/json",
-      "HTTP-Referer": config.siteUrl,
-      "X-Title": config.appName,
-    },
-    body: JSON.stringify({
-      model: config.model,
-      max_tokens: config.maxTokens,
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: [
-                "请识别图片中的证件或报价信息，并只输出 JSON。",
-                "返回字段: plate, vehicleType, brandModel, energyType, name, companyName, firstRegistrationDate, usageNature, approvedPassengers, approvedLoad, templateType。",
-                "templateType 只能是 新能源、机动车、特种车 之一。",
-                "如果是行驶证或报价单，尽量提取号牌号码、厂牌车型、初次登记日期、使用性质、核定载客、核定载质量。",
-                "如果是身份证，提取姓名。",
-                "如果是营业执照，提取 companyName。",
-                "没有识别到的字段返回空字符串。",
-              ].join(" "),
-            },
-            {
-              type: "image_url",
-              image_url: {
-                url: imageUrl,
-              },
-            },
-          ],
-        },
-      ],
-    }),
-  });
-
-  if (!response.ok) {
-    let payload: OpenRouterErrorPayload | undefined;
-
-    try {
-      payload = (await response.json()) as OpenRouterErrorPayload;
-    } catch {
-      payload = undefined;
-    }
-
-    throw new Error(getOpenRouterErrorMessage(response.status, payload));
+  if (file.type === "application/pdf") {
+    throw new Error("当前传统 OCR 暂不支持 PDF，请先上传图片格式。");
   }
 
-  const data = (await response.json()) as OpenRouterResponse;
-  return data.choices?.[0]?.message?.content ?? "";
+  const result = await Tesseract.recognize(file, "chi_sim+eng", {
+    logger: () => {},
+  });
+
+  return result.data.text || "";
 }
 
 export async function recognize(file: File): Promise<RecognizedDocument> {
   const text = await recognizeDocument(file);
-  const jsonText = extractJsonBlock(text);
-
-  try {
-    return JSON.parse(jsonText) as RecognizedDocument;
-  } catch {
-    return { raw: text };
-  }
+  return parseTraditionalOcrText(text);
 }
