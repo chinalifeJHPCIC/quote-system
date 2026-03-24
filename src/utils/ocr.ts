@@ -60,6 +60,61 @@ function matchLineValue(lines: string[], labels: string[]) {
   return "";
 }
 
+function cleanLabelValue(value: string) {
+  return value
+    .replace(/^[：:\-.\s]+/, "")
+    .replace(/^(?:[0-9]{1,2}[.、])/, "")
+    .trim();
+}
+
+function findValueNearLabel(
+  lines: string[],
+  labels: string[],
+  options?: { nextLineOnly?: boolean; stopLabels?: string[] },
+) {
+  const stopLabels = options?.stopLabels ?? [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const compactLine = compactText(line);
+
+    for (const label of labels) {
+      const compactLabel = compactText(label);
+      const labelIndex = compactLine.indexOf(compactLabel);
+
+      if (labelIndex < 0) continue;
+
+      const inlineValue = cleanLabelValue(
+        compactLine.slice(labelIndex + compactLabel.length),
+      );
+      if (inlineValue) return inlineValue;
+
+      const nextLine = lines[index + 1] ? compactText(lines[index + 1]) : "";
+      if (!nextLine) continue;
+      if (stopLabels.some((stopLabel) => nextLine.includes(compactText(stopLabel)))) {
+        continue;
+      }
+
+      const nextValue = cleanLabelValue(nextLine);
+      if (nextValue) return nextValue;
+
+      if (!options?.nextLineOnly) {
+        const mergedValue = cleanLabelValue(
+          compactText(`${lines[index + 1] ?? ""}${lines[index + 2] ?? ""}`),
+        );
+        if (
+          mergedValue &&
+          !stopLabels.some((stopLabel) => mergedValue.includes(compactText(stopLabel)))
+        ) {
+          return mergedValue;
+        }
+      }
+    }
+  }
+
+  return "";
+}
+
 function normalizeDate(raw: string) {
   if (!raw) return "";
   const digits = raw.replace(/[^\d]/g, "");
@@ -115,9 +170,121 @@ function detectTemplateType(text: string): RecognizedDocument["templateType"] {
   return "机动车";
 }
 
+function parseInvoiceDocument(lines: string[], source: string): RecognizedDocument {
+  const partyName = findValueNearLabel(lines, ["购买方名称"], {
+    stopLabels: ["统一社会信用代码", "纳税人识别号", "身份证号码"],
+  });
+  const vehicleType = findValueNearLabel(lines, ["车辆类型"], {
+    stopLabels: ["厂牌型号", "产地"],
+  });
+  const brandModel = findValueNearLabel(lines, ["厂牌型号"], {
+    stopLabels: ["产地", "合格证号"],
+  });
+  const engineNumber = normalizeAlphaNumeric(
+    findValueNearLabel(lines, ["发动机号码", "发动机号"], {
+      stopLabels: ["车辆识别代号", "车架号码"],
+    }) || matchFirst(source, [/发动机号码[:：]?([A-Z0-9]{6,30})/i]),
+  );
+  const vin = normalizeAlphaNumeric(
+    findValueNearLabel(lines, ["车辆识别代号/车架号码", "车辆识别代号", "车架号码"], {
+      stopLabels: ["价税合计", "小写"],
+    }) ||
+      matchFirst(source, [/车辆识别代号\/?车架号码[:：]?([A-HJ-NPR-Z0-9]{11,30})/i]),
+  );
+  const invoiceAmount = normalizeNumeric(
+    findValueNearLabel(lines, ["小写"], {
+      stopLabels: ["销货单位名称", "电话"],
+    }) || matchFirst(source, [/小写[:：]?([0-9]{3,}\.?[0-9]{0,2})/]),
+  );
+  const firstRegistrationDate = normalizeDate(
+    findValueNearLabel(lines, ["开票日期"], { nextLineOnly: true }) ||
+      matchFirst(source, [/开票日期[:：]?([0-9]{4}[年\-\/.][0-9]{1,2}[月\-\/.][0-9]{1,2}日?)/]),
+  );
+
+  const companyName = looksLikeCompanyName(partyName) ? partyName : "";
+  const name = companyName ? "" : partyName;
+
+  return {
+    plate: "新车未上牌",
+    vehicleType: cleanLabelValue(vehicleType),
+    brandModel: cleanLabelValue(brandModel),
+    energyType:
+      source.includes("纯电") || source.includes("新能源") || source.includes("电")
+        ? "新能源"
+        : "",
+    name,
+    companyName,
+    firstRegistrationDate,
+    engineNumber,
+    vin,
+    invoiceAmount,
+    templateType: detectTemplateType(source),
+    raw: lines.join("\n").trim(),
+  };
+}
+
+function parseCertificateDocument(lines: string[], source: string): RecognizedDocument {
+  const vehicleType = findValueNearLabel(lines, ["车辆品牌/车辆名称", "车辆名称", "车辆类型"], {
+    stopLabels: ["车辆型号", "车辆识别代号", "发动机型号"],
+  });
+  const approvedLoad = normalizeNumeric(
+    findValueNearLabel(lines, ["额定载质量(kg)", "额定载质量", "核定载质量"], {
+      stopLabels: ["整备质量", "总质量"],
+    }) || matchFirst(source, [/额定载质量(?:\(kg\))?[:：]?([0-9.]{1,10})/]),
+  );
+  const approvedPassengers = normalizeNumeric(
+    findValueNearLabel(lines, ["驾驶室准乘人数(人)", "驾驶室准乘人数"], {
+      stopLabels: ["额定载客", "接近角"],
+    }) || matchFirst(source, [/驾驶室准乘人数(?:\(人\))?[:：]?([0-9]{1,3})/]),
+  );
+  const brandModel = findValueNearLabel(lines, ["车辆型号"], {
+    stopLabels: ["车辆识别代号", "车身颜色"],
+  });
+  const engineNumber = normalizeAlphaNumeric(
+    findValueNearLabel(lines, ["发动机号码", "发动机号"], {
+      stopLabels: ["燃料种类", "排量"],
+    }) || matchFirst(source, [/发动机号码[:：]?([A-Z0-9]{6,30})/i]),
+  );
+  const vin = normalizeAlphaNumeric(
+    findValueNearLabel(lines, ["车辆识别代号/车架号码", "车辆识别代号", "车架号码"], {
+      stopLabels: ["发动机型号", "底盘型号"],
+    }) ||
+      matchFirst(source, [/车辆识别代号\/?车架号码[:：]?([A-HJ-NPR-Z0-9]{11,30})/i]),
+  );
+  const firstRegistrationDate = normalizeDate(
+    findValueNearLabel(lines, ["发证日期"], { nextLineOnly: true }) ||
+      matchFirst(source, [/发证日期[:：]?([0-9]{4}[年\-\/.][0-9]{1,2}[月\-\/.][0-9]{1,2}日?)/]),
+  );
+
+  return {
+    plate: "新车未上牌",
+    vehicleType: cleanLabelValue(vehicleType),
+    brandModel: cleanLabelValue(brandModel),
+    energyType:
+      source.includes("纯电") || source.includes("新能源") || source.includes("燃料种类电")
+        ? "新能源"
+        : "",
+    firstRegistrationDate,
+    approvedPassengers,
+    approvedLoad,
+    engineNumber,
+    vin,
+    templateType: detectTemplateType(source),
+    raw: lines.join("\n").trim(),
+  };
+}
+
 function parseTraditionalOcrText(text: string): RecognizedDocument {
   const source = compactText(text);
   const lines = getNormalizedLines(text);
+
+  if (source.includes("统一发票") || source.includes("电子发票") || source.includes("购货方名称")) {
+    return parseInvoiceDocument(lines, source);
+  }
+
+  if (source.includes("合格证") || source.includes("车辆制造企业名称") || source.includes("驾驶室准乘人数")) {
+    return parseCertificateDocument(lines, source);
+  }
 
   const plate = normalizePlate(
     matchLineValue(lines, ["号牌号码", "车牌号码", "车牌号"]) ||

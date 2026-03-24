@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent } from "react";
+import { useEffect, useState, type ChangeEvent } from "react";
 import { Link } from "react-router-dom";
 import { recognize, saveRecognizedDocument } from "../utils/ocr";
 
@@ -6,6 +6,13 @@ export default function Upload() {
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState("");
   const [error, setError] = useState("");
+  const [previewUrl, setPreviewUrl] = useState("");
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
 
   const handleUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -14,6 +21,10 @@ export default function Upload() {
     setIsLoading(true);
     setError("");
     setResult("");
+    setPreviewUrl((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return file.type.startsWith("image/") ? URL.createObjectURL(file) : "";
+    });
 
     try {
       const nextResult = await recognize(file);
@@ -50,6 +61,12 @@ export default function Upload() {
           accept="image/*,.pdf"
           onChange={handleUpload}
         />
+
+        {previewUrl ? (
+          <div className="upload-preview-card">
+            <img alt="上传预览" className="upload-preview-image" src={previewUrl} />
+          </div>
+        ) : null}
 
         <p className="status-text">
           {isLoading

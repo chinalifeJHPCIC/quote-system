@@ -283,6 +283,22 @@ p {
   gap: 20px;
 }
 
+.upload-preview-card {
+  padding: 12px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(107, 114, 128, 0.15);
+}
+
+.upload-preview-image {
+  display: block;
+  width: 100%;
+  max-height: 320px;
+  object-fit: contain;
+  border-radius: 12px;
+  background: #fff;
+}
+
 .status-text {
   color: #5a5f6b;
 }

@@ -325,6 +325,7 @@ export default function Quote() {
   const [ocrError, setOcrError] = useState("");
   const [ocrRaw, setOcrRaw] = useState("");
   const [lastRecognized, setLastRecognized] = useState<RecognizedDocument | null>(null);
+  const [uploadPreviewUrl, setUploadPreviewUrl] = useState("");
   const [history, setHistory] = useState<QuoteHistoryEntry[]>(() => readQuoteHistory());
 
   const template = QUOTE_TEMPLATES[templateKind];
@@ -505,6 +506,10 @@ export default function Quote() {
     setIsRecognizing(true);
     setOcrError("");
     setOcrRaw("");
+    setUploadPreviewUrl((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return file.type.startsWith("image/") ? URL.createObjectURL(file) : "";
+    });
 
     try {
       const recognized = await recognize(file);
@@ -523,6 +528,12 @@ export default function Quote() {
   useEffect(() => {
     formRef.current = form;
   }, [form]);
+
+  useEffect(() => {
+    return () => {
+      if (uploadPreviewUrl) URL.revokeObjectURL(uploadPreviewUrl);
+    };
+  }, [uploadPreviewUrl]);
 
   useEffect(() => {
     const recognized = readRecognizedDocument();
@@ -585,6 +596,16 @@ export default function Quote() {
               accept="image/*,.pdf"
               onChange={handleUpload}
             />
+
+            {uploadPreviewUrl ? (
+              <div className="upload-preview-card">
+                <img
+                  alt="识别图片预览"
+                  className="upload-preview-image"
+                  src={uploadPreviewUrl}
+                />
+              </div>
+            ) : null}
             <p className="status-text">
               {isRecognizing
                 ? "识别中，系统会自动判断新能源 / 机动车 / 特种车。"
