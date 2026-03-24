@@ -205,6 +205,25 @@ function formatHistoryTime(value: string) {
   return `${mm}-${dd} ${hh}:${mi}`;
 }
 
+function formatDateToCompact(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}${month}${day}`;
+}
+
+function getOneYearPolicyPeriod() {
+  const start = new Date();
+  const end = new Date(start);
+  end.setFullYear(end.getFullYear() + 1);
+  end.setDate(end.getDate() - 1);
+
+  return {
+    start: formatDateToCompact(start),
+    end: formatDateToCompact(end),
+  };
+}
+
 function normalizeRecognizedDate(value: string) {
   if (!value) return "";
   const digits = value.replace(/\D/g, "");
@@ -331,6 +350,18 @@ export default function Quote() {
       ...current,
       quoteDate: normalized || current.quoteDate,
       quoteDateInput: digits,
+    }));
+  };
+
+  const handlePolicyToday = (
+    startKey: "compulsoryStart" | "commercialStart",
+    endKey: "compulsoryEnd" | "commercialEnd",
+  ) => {
+    const period = getOneYearPolicyPeriod();
+    setForm((current) => ({
+      ...current,
+      [startKey]: period.start,
+      [endKey]: period.end,
     }));
   };
 
@@ -650,15 +681,26 @@ export default function Quote() {
 
               <label>
                 <span>交强险起期</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="yyyymmdd"
-                  value={form.compulsoryStart}
-                  onChange={(e) =>
-                    updateForm("compulsoryStart", normalizeCompactDate(e.target.value))
-                  }
-                />
+                <div className="date-control-group policy-date-group">
+                  <button
+                    className="secondary-link date-today-button"
+                    onClick={() =>
+                      handlePolicyToday("compulsoryStart", "compulsoryEnd")
+                    }
+                    type="button"
+                  >
+                    今日起期
+                  </button>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="yyyymmdd"
+                    value={form.compulsoryStart}
+                    onChange={(e) =>
+                      updateForm("compulsoryStart", normalizeCompactDate(e.target.value))
+                    }
+                  />
+                </div>
               </label>
 
               <label>
@@ -676,15 +718,26 @@ export default function Quote() {
 
               <label>
                 <span>商业险起期</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="yyyymmdd"
-                  value={form.commercialStart}
-                  onChange={(e) =>
-                    updateForm("commercialStart", normalizeCompactDate(e.target.value))
-                  }
-                />
+                <div className="date-control-group policy-date-group">
+                  <button
+                    className="secondary-link date-today-button"
+                    onClick={() =>
+                      handlePolicyToday("commercialStart", "commercialEnd")
+                    }
+                    type="button"
+                  >
+                    今日起期
+                  </button>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="yyyymmdd"
+                    value={form.commercialStart}
+                    onChange={(e) =>
+                      updateForm("commercialStart", normalizeCompactDate(e.target.value))
+                    }
+                  />
+                </div>
               </label>
 
               <label>

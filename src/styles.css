@@ -176,6 +176,10 @@ p {
   align-items: center;
 }
 
+.policy-date-group {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
 .form-grid input[type="number"] {
   width: 100%;
   padding: 12px 14px;

@@ -40,10 +40,14 @@ function matchFirst(text: string, patterns: RegExp[]) {
 
 function matchLineValue(lines: string[], labels: string[]) {
   for (const line of lines) {
+    const compactLine = compactText(line);
     for (const label of labels) {
-      const index = line.indexOf(label);
+      const index = compactLine.indexOf(label);
       if (index >= 0) {
-        const value = line.slice(index + label.length).replace(/^[:：]\s*/, "").trim();
+        const value = compactLine
+          .slice(index + label.length)
+          .replace(/^[:：]\s*/, "")
+          .trim();
         if (value) return value;
       }
     }
@@ -71,6 +75,10 @@ function normalizeNumeric(raw: string) {
   if (!raw) return "";
   const value = raw.replace(/[^\d.]/g, "");
   return value;
+}
+
+function looksLikeCompanyName(value: string) {
+  return /公司|集团|中心|商行|工厂|店|合作社|物流/.test(value);
 }
 
 function detectTemplateType(text: string): RecognizedDocument["templateType"] {
@@ -114,21 +122,27 @@ function parseTraditionalOcrText(text: string): RecognizedDocument {
     matchFirst(source, [
       /厂牌车型[:：]?(.{4,80}?)(?:初次登记日期|使用性质|核定载客|核定[载栽]质量|商业险|交强险|二、|三、)/,
       /厂牌型号[:：]?(.{4,80}?)(?:初次登记日期|使用性质|核定载客|核定[载栽]质量|商业险|交强险|二、|三、)/,
+      /厂牌型号([A-Z0-9\u4e00-\u9fa5\-]{6,80})/,
     ]);
 
   const vehicleType =
-    matchLineValue(lines, ["车辆类型", "车型"]) ||
+    matchLineValue(lines, ["车辆类型", "车辆名称", "车型"]) ||
     matchFirst(source, [
       /车辆类型[:：]?(.{2,40}?)(?:厂牌|初次登记日期|使用性质|核定载客|核定[载栽]质量|商业险|交强险|二、|三、)/,
+      /车辆类型(.{2,40}?)(?:厂牌型号|合格证号|发动机号码|车辆识别代号)/,
+      /车辆类型([\u4e00-\u9fa5A-Za-z0-9\-]{2,40})/,
+      /车辆名称(.{2,40}?)(?:厂牌型号|产地|合格证号)/,
       /车型[:：]?(.{2,40}?)(?:厂牌|初次登记日期|使用性质|核定载客|核定[载栽]质量|商业险|交强险|二、|三、)/,
     ]) ||
     brandModel;
 
   const firstRegistrationDate = normalizeDate(
-    matchLineValue(lines, ["初次登记日期", "注册日期"]) ||
+    matchLineValue(lines, ["初次登记日期", "注册日期", "发证日期", "开票日期"]) ||
     matchFirst(source, [
       /初次登记日期[:：]?([0-9]{4}[年\-\/.][0-9]{1,2}[月\-\/.][0-9]{1,2}日?)/,
       /注册日期[:：]?([0-9]{4}[年\-\/.][0-9]{1,2}[月\-\/.][0-9]{1,2}日?)/,
+      /发证日期[:：]?([0-9]{4}[年\-\/.][0-9]{1,2}[月\-\/.][0-9]{1,2}日?)/,
+      /开票日期[:：]?([0-9]{4}[年\-\/.][0-9]{1,2}[月\-\/.][0-9]{1,2}日?)/,
     ]),
   );
 
@@ -140,34 +154,38 @@ function parseTraditionalOcrText(text: string): RecognizedDocument {
     ]);
 
   const approvedPassengers = normalizeNumeric(
-    matchLineValue(lines, ["核定载客", "准乘人数"]) ||
+    matchLineValue(lines, ["核定载客", "准乘人数", "额定载客人数", "限乘人数"]) ||
       matchFirst(source, [
         /核定载客[:：]?([0-9]{1,3})/,
         /准乘人数[:：]?([0-9]{1,3})/,
+        /限乘人数[:：]?([0-9]{1,3})/,
       ]),
   );
 
   const approvedLoad = normalizeNumeric(
-    matchLineValue(lines, ["核定载质量", "核定栽质量", "总质量"]) ||
+    matchLineValue(lines, ["核定载质量", "核定栽质量", "额定载质量", "总质量"]) ||
       matchFirst(source, [
         /核定[载栽]质量[:：]?([0-9.]{1,10})/,
+        /额定载质量[:：]?([0-9.]{1,10})/,
         /总质量[:：]?([0-9.]{1,10})/,
       ]),
   );
 
-  const companyName =
-    matchLineValue(lines, ["公司名称", "名称"]) ||
+  const partyName =
+    matchLineValue(lines, ["公司名称", "购买方名称", "名称"]) ||
     matchFirst(source, [
+      /购买方名称[:：]?([\u4e00-\u9fa5A-Za-z0-9（）()·]{2,60})/,
       /公司名称[:：]?([\u4e00-\u9fa5A-Za-z0-9（）()·]{4,60})/,
       /名称[:：]?([\u4e00-\u9fa5A-Za-z0-9（）()·]{4,60}(?:公司|中心|商行|工厂|店))/,
       /尊敬的([\u4e00-\u9fa5A-Za-z0-9（）()·]{2,60}(?:公司|中心|商行|工厂|店))/,
     ]);
 
-  const name =
-    matchLineValue(lines, ["姓名", "被保险人"]) ||
+  const extractedName =
+    matchLineValue(lines, ["姓名", "被保险人", "购买方名称"]) ||
     matchFirst(source, [
       /姓名[:：]?([\u4e00-\u9fa5·]{2,12})/,
       /被保险人[:：]?([\u4e00-\u9fa5·]{2,12})/,
+      /购买方名称[:：]?([\u4e00-\u9fa5·]{2,12})/,
       /尊敬的([\u4e00-\u9fa5·]{2,12})/,
     ]);
 
@@ -176,17 +194,28 @@ function parseTraditionalOcrText(text: string): RecognizedDocument {
       ? "新能源"
       : source.includes("燃油")
         ? "燃油"
-        : "";
+        : source.includes("燃料种类电") || source.includes("燃料种类:电")
+          ? "新能源"
+          : "";
+
+  const normalizedUsageNature = usageNature
+    ? usageNature
+    : vehicleType.includes("货车") || vehicleType.includes("仓栅")
+      ? "货运"
+      : "";
+
+  const companyName = looksLikeCompanyName(partyName) ? partyName : "";
+  const name = companyName ? extractedName : extractedName || partyName;
 
   return {
-    plate,
+    plate: plate || (source.includes("合格证") && !plate ? "新车未上牌" : ""),
     vehicleType,
     brandModel,
     energyType,
-    name: companyName ? "" : name,
+    name,
     companyName,
     firstRegistrationDate,
-    usageNature,
+    usageNature: normalizedUsageNature,
     approvedPassengers,
     approvedLoad,
     templateType: detectTemplateType(source),
