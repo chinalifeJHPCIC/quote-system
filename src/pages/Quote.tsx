@@ -8,13 +8,14 @@ import {
   type RecognizedDocument,
 } from "../utils/ocr";
 import { generateInsurancePDF } from "../utils/pdfGenerator";
-import { calculateQuote } from "../utils/quoteEngine";
+import { PROVINCES, type ProvinceName, type TruckUsageType } from "../data/pureRiskRates";
 import {
   detectTemplateKind,
   QUOTE_TEMPLATES,
   type QuoteItem,
   type TemplateKind,
 } from "../utils/quoteTemplates";
+import { calculateTruckQuote } from "../utils/quote";
 
 const QUOTE_HISTORY_KEY = "quote-system-history";
 const HISTORY_LIMIT = 12;
@@ -35,6 +36,14 @@ type QuoteFormState = {
   engineNumber: string;
   vin: string;
   invoiceAmount: string;
+  province: ProvinceName;
+  usageType: TruckUsageType;
+  thirdPartyLimit: number;
+  driverLimit: number;
+  damageManualPremium: number;
+  adjustmentFactor: number;
+  expenseRate: number;
+  extraInsurancePremium: number;
   damageCoverage: number;
   thirdParty: number;
   driver: number;
@@ -77,6 +86,14 @@ const initialForm: QuoteFormState = {
   engineNumber: "",
   vin: "",
   invoiceAmount: "",
+  province: "河北",
+  usageType: "营业",
+  thirdPartyLimit: 100,
+  driverLimit: 100000,
+  damageManualPremium: 0,
+  adjustmentFactor: 1,
+  expenseRate: 0.25,
+  extraInsurancePremium: QUOTE_TEMPLATES["机动车"].extraInsurancePremium,
   damageCoverage: 224000,
   thirdParty: 100,
   driver: 10,
@@ -118,15 +135,21 @@ function getCommercialPremiumTotal(items: QuoteItem[]) {
 }
 
 function buildQuoteItems(form: QuoteFormState, templateKind: TemplateKind) {
-  const result = calculateQuote({
-    vehicleType: form.vehicleType || templateKind,
-    isCommercial: true,
-    vehiclePrice: 350000,
-    damageCoverage: form.damageCoverage,
-    thirdParty: form.thirdParty,
-    driverCoverage: form.driver,
-    passengerCoverage: form.passenger,
-    lastYearClaims: form.claims,
+  const vehiclePrice =
+    Number(form.invoiceAmount.replace(/[^\d.]/g, "")) ||
+    Number(form.damageCoverage) ||
+    0;
+  const result = calculateTruckQuote({
+    province: form.province,
+    usageType: form.usageType,
+    weightClass: "2吨以下",
+    vehiclePrice,
+    thirdPartyLimit: form.thirdPartyLimit,
+    driverLimit: form.driverLimit,
+    damageManualPremium: form.damageManualPremium,
+    adjustmentFactor: form.adjustmentFactor,
+    expenseRate: form.expenseRate,
+    compulsoryClaims: form.compulsoryClaims,
     hasDeathClaim: form.death,
   });
 
@@ -134,13 +157,13 @@ function buildQuoteItems(form: QuoteFormState, templateKind: TemplateKind) {
 
   return template.createItems({
     damageCoverage: form.damageCoverage,
-    thirdParty: form.thirdParty,
-    driverCoverage: form.driver,
+    thirdParty: form.thirdPartyLimit,
+    driverCoverage: Math.round(form.driverLimit / 10000),
     passengerCoverage: form.passenger,
     damagePremium: result.damage,
     thirdPremium: result.third,
     driverPremium: result.driver,
-    passengerPremium: result.passenger,
+    passengerPremium: 0,
     compulsoryPremium: result.compulsory,
     taxPremium: form.taxPremium,
     medicalOutsideCoverage: form.medicalOutsideCoverage,
@@ -303,10 +326,42 @@ export default function Quote() {
   const [history, setHistory] = useState<QuoteHistoryEntry[]>(() => readQuoteHistory());
 
   const template = QUOTE_TEMPLATES[templateKind];
+  const truckQuote = useMemo(() => {
+    const vehiclePrice =
+      Number(form.invoiceAmount.replace(/[^\d.]/g, "")) ||
+      Number(form.damageCoverage) ||
+      0;
+
+    return calculateTruckQuote({
+      province: form.province,
+      usageType: form.usageType,
+      weightClass: "2吨以下",
+      vehiclePrice,
+      thirdPartyLimit: form.thirdPartyLimit,
+      driverLimit: form.driverLimit,
+      damageManualPremium: form.damageManualPremium,
+      adjustmentFactor: form.adjustmentFactor,
+      expenseRate: form.expenseRate,
+      compulsoryClaims: form.compulsoryClaims,
+      hasDeathClaim: form.death,
+    });
+  }, [
+    form.compulsoryClaims,
+    form.damageCoverage,
+    form.damageManualPremium,
+    form.death,
+    form.driverLimit,
+    form.expenseRate,
+    form.invoiceAmount,
+    form.province,
+    form.thirdPartyLimit,
+    form.usageType,
+    form.adjustmentFactor,
+  ]);
 
   const commercialTotal = useMemo(() => getCommercialPremiumTotal(items), [items]);
   const vehicleTotal = useMemo(() => getVehiclePremiumTotal(items), [items]);
-  const grandTotal = vehicleTotal + template.extraInsurancePremium;
+  const grandTotal = vehicleTotal + form.extraInsurancePremium;
   const quoteDate = useMemo(() => formatQuoteDate(form.quoteDate), [form.quoteDate]);
   const mainItems = items.filter(
     (item) => item.id !== "compulsory" && item.id !== "tax",
@@ -676,6 +731,33 @@ export default function Quote() {
             <h2>报价参数与期间</h2>
             <div className="form-grid">
               <label>
+                <span>省份</span>
+                <select
+                  value={form.province}
+                  onChange={(e) => updateForm("province", e.target.value as ProvinceName)}
+                >
+                  {PROVINCES.map((province) => (
+                    <option key={province} value={province}>
+                      {province}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                <span>营业 / 非营业</span>
+                <select
+                  value={form.usageType}
+                  onChange={(e) =>
+                    updateForm("usageType", e.target.value as TruckUsageType)
+                  }
+                >
+                  <option value="营业">营业</option>
+                  <option value="非营业">非营业</option>
+                </select>
+              </label>
+
+              <label>
                 <span>车损保额</span>
                 <input
                   type="number"
@@ -687,20 +769,66 @@ export default function Quote() {
               </label>
 
               <label>
-                <span>三者额度（万）</span>
+                <span>三者限额（万）</span>
                 <input
                   type="number"
-                  value={form.thirdParty}
-                  onChange={(e) => updateForm("thirdParty", Number(e.target.value))}
+                  value={form.thirdPartyLimit}
+                  onChange={(e) =>
+                    updateForm("thirdPartyLimit", Number(e.target.value))
+                  }
                 />
               </label>
 
               <label>
-                <span>司机额度（万）</span>
+                <span>司机限额（元）</span>
                 <input
                   type="number"
-                  value={form.driver}
-                  onChange={(e) => updateForm("driver", Number(e.target.value))}
+                  value={form.driverLimit}
+                  onChange={(e) => updateForm("driverLimit", Number(e.target.value))}
+                />
+              </label>
+
+              <label>
+                <span>车损人工保费</span>
+                <input
+                  type="number"
+                  value={form.damageManualPremium}
+                  onChange={(e) =>
+                    updateForm("damageManualPremium", Number(e.target.value))
+                  }
+                />
+              </label>
+
+              <label>
+                <span>调整系数</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={form.adjustmentFactor}
+                  onChange={(e) =>
+                    updateForm("adjustmentFactor", Number(e.target.value))
+                  }
+                />
+              </label>
+
+              <label>
+                <span>附加费用率</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={form.expenseRate}
+                  onChange={(e) => updateForm("expenseRate", Number(e.target.value))}
+                />
+              </label>
+
+              <label>
+                <span>非车险保费</span>
+                <input
+                  type="number"
+                  value={form.extraInsurancePremium}
+                  onChange={(e) =>
+                    updateForm("extraInsurancePremium", Number(e.target.value))
+                  }
                 />
               </label>
 
@@ -875,6 +1003,44 @@ export default function Quote() {
             </div>
           </section>
         </div>
+
+        <section className="editor-panel">
+          <h2>货车省份报价结果</h2>
+          <div className="result-grid">
+            <div className="result-panel">
+              <strong>交强险</strong>
+              <span>{truckQuote.compulsory.toFixed(2)}</span>
+            </div>
+            <div className="result-panel">
+              <strong>车损</strong>
+              <span>{truckQuote.damage.toFixed(2)}</span>
+            </div>
+            <div className="result-panel">
+              <strong>三者</strong>
+              <span>{truckQuote.third.toFixed(2)}</span>
+            </div>
+            <div className="result-panel">
+              <strong>司机</strong>
+              <span>{truckQuote.driver.toFixed(2)}</span>
+            </div>
+            <div className="result-panel">
+              <strong>合计</strong>
+              <span>{truckQuote.total.toFixed(2)}</span>
+            </div>
+          </div>
+          <div className="result-block warnings-block">
+            <strong>warnings</strong>
+            <ul className="warnings-list">
+              {truckQuote.warnings.length ? (
+                truckQuote.warnings.map((warning) => (
+                  <li key={warning}>{warning}</li>
+                ))
+              ) : (
+                <li>当前报价未产生额外提示。</li>
+              )}
+            </ul>
+          </div>
+        </section>
 
         <section className="editor-panel">
           <div className="section-header-row">
@@ -1065,14 +1231,14 @@ export default function Quote() {
                   <td>{row.clause}</td>
                   <td>{row.responsibility}</td>
                   <td>{row.amount}</td>
-                  <td>{index === 0 ? template.extraInsurancePremium : ""}</td>
+                  <td>{index === 0 ? form.extraInsurancePremium : ""}</td>
                 </tr>
               ))}
               <tr className="summary-row">
                 <td>非车险合计</td>
                 <td>/</td>
                 <td>/</td>
-                <td>{template.extraInsurancePremium}</td>
+                <td>{form.extraInsurancePremium}</td>
               </tr>
               <tr className="summary-row">
                 <td>合计</td>

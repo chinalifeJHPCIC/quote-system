@@ -253,12 +253,20 @@ p {
 
 .result-grid input[type="number"],
 .result-grid input[type="text"],
+.result-grid select,
 .upload-input {
   width: 100%;
   padding: 12px 14px;
   border: 1px solid rgba(107, 114, 128, 0.3);
   border-radius: 14px;
   background: #fff;
+}
+
+.form-grid select,
+.form-grid input[type="number"],
+.form-grid input[type="text"],
+.form-grid input[type="date"] {
+  width: 100%;
 }
 
 .result-panel {
@@ -286,6 +294,15 @@ p {
   border: 1px solid rgba(15, 23, 42, 0.08);
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.warnings-block {
+  margin-top: 16px;
+}
+
+.warnings-list {
+  margin: 10px 0 0;
+  padding-left: 18px;
 }
 
 .history-list {
