@@ -1,6 +1,26 @@
 :root {
   font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
   color: #1f2937;
+  --font-policy-body:
+    "SimSun",
+    "Songti SC",
+    "STSong",
+    "Noto Serif SC",
+    "Source Han Serif SC",
+    serif;
+  --font-policy-title:
+    "SimHei",
+    "Microsoft YaHei",
+    "PingFang SC",
+    "Noto Sans SC",
+    "Source Han Sans SC",
+    sans-serif;
+  --font-policy-number:
+    "Times New Roman",
+    "Georgia",
+    "SFMono-Regular",
+    "Consolas",
+    monospace;
   background:
     radial-gradient(circle at top, rgba(247, 198, 66, 0.24), transparent 35%),
     linear-gradient(180deg, #f7f4ec 0%, #ece5d5 100%);
@@ -34,6 +54,113 @@ input {
   background:
     linear-gradient(180deg, rgba(250, 245, 233, 0.92), rgba(241, 233, 214, 0.96)),
     radial-gradient(circle at top left, rgba(0, 157, 103, 0.08), transparent 35%);
+}
+
+/* 人寿保单风格为视觉拟合，不代表官方同款字库 */
+.quote-page,
+.quote-page .quote-card,
+.quote-page .quote-result,
+.quote-page .quote-form,
+.quote-page .quote-summary,
+.quote-page .quote-sheet,
+.quote-page .quote-panel {
+  font-family: var(--font-policy-body);
+  font-size: 14px;
+  line-height: 1.75;
+  color: #2b2b2b;
+}
+
+.quote-page .quote-card {
+  border: 1px solid rgba(58, 47, 28, 0.16);
+  border-radius: 16px;
+  background: rgba(255, 253, 248, 0.95);
+  box-shadow: 0 8px 22px rgba(68, 53, 24, 0.06);
+}
+
+.quote-page .quote-panel,
+.quote-page .quote-item-card,
+.quote-page .result-panel,
+.quote-page .quote-preview-sheet {
+  border-radius: 10px;
+  border-color: rgba(58, 47, 28, 0.14);
+  box-shadow: none;
+}
+
+.quote-page .editor-panel,
+.quote-page .quote-item-card,
+.quote-page .quote-preview-sheet {
+  padding: 18px;
+}
+
+.quote-page .quote-title,
+.quote-page .quote-section-title,
+.quote-page .sheet-title,
+.quote-page .sheet-section-title,
+.quote-page .section-header-row h2,
+.quote-page h2 {
+  font-family: var(--font-policy-title);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.quote-page .sheet-title {
+  font-size: 34px;
+}
+
+.quote-page .quote-form label,
+.quote-page .quote-label,
+.quote-page .summary-label,
+.quote-page .result-panel strong,
+.quote-page .sheet-recipient,
+.quote-page .sheet-desc,
+.quote-page .sheet-period-row,
+.quote-page .sheet-reminder,
+.quote-page .sheet-company {
+  font-family: var(--font-policy-body);
+  font-weight: 500;
+}
+
+.quote-page .amount,
+.quote-page .premium-value,
+.quote-page .total-price,
+.quote-page .quote-total,
+.quote-page .quote-money,
+.quote-page .quote-number,
+.quote-page .quote-value,
+.quote-page .summary-value,
+.quote-page .sheet-table td:last-child,
+.quote-page .sheet-date-row,
+.quote-page input[type="number"] {
+  font-family: var(--font-policy-number);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.quote-page .total-price,
+.quote-page .quote-total {
+  font-size: 22px;
+}
+
+.quote-page .summary-row,
+.quote-page .summary-row td,
+.quote-page .summary-label,
+.quote-page .summary-value {
+  font-weight: 700;
+}
+
+.quote-page .quote-table,
+.quote-page .sheet-table {
+  font-family: var(--font-policy-body);
+}
+
+.quote-page .quote-row,
+.quote-page .quote-label,
+.quote-page .quote-value,
+.quote-page .summary-row,
+.quote-page .summary-label,
+.quote-page .summary-value {
+  font-size: 14px;
+  line-height: 1.75;
 }
 
 .card {
@@ -370,7 +497,6 @@ p {
 .sheet-title {
   margin: 0;
   text-align: center;
-  font-family: "STZhongsong", "Songti SC", serif;
   font-size: 36px;
   font-weight: 700;
 }
@@ -386,14 +512,12 @@ p {
 .sheet-period-row,
 .sheet-reminder,
 .sheet-company {
-  font-family: "STZhongsong", "Songti SC", serif;
   font-size: 18px;
   line-height: 1.7;
 }
 
 .sheet-section-title {
   margin-top: 14px;
-  font-family: "STZhongsong", "Songti SC", serif;
   font-size: 22px;
   font-weight: 700;
 }
@@ -408,7 +532,6 @@ p {
 .sheet-basic-grid p,
 .sheet-info-list p {
   margin: 0;
-  font-family: "STZhongsong", "Songti SC", serif;
   font-size: 18px;
   line-height: 1.6;
 }
@@ -418,7 +541,6 @@ p {
   margin-top: 12px;
   border-collapse: collapse;
   table-layout: fixed;
-  font-family: "STZhongsong", "Songti SC", serif;
 }
 
 .sheet-table th,
@@ -466,7 +588,6 @@ p {
   display: flex;
   justify-content: flex-end;
   margin-top: 24px;
-  font-family: "STZhongsong", "Songti SC", serif;
   font-size: 18px;
   line-height: 1.7;
 }

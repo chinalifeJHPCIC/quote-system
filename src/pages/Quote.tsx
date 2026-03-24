@@ -555,11 +555,11 @@ export default function Quote() {
 
   return (
     <div className="page-shell quote-page">
-      <div className="card quote-workbench">
+      <div className="card quote-card quote-workbench">
         <div className="heading-row">
           <div>
             <p className="eyebrow">中国人寿</p>
-            <h1>车险报价系统</h1>
+            <h1 className="quote-title">车险报价系统</h1>
             <p className="intro">
               页面预览、识别字段和导出 PDF 均按 Excel 模板映射。
             </p>
@@ -588,8 +588,8 @@ export default function Quote() {
         </div>
 
         <div className="editor-grid">
-          <section className="editor-panel">
-            <h2>识别与基本信息</h2>
+          <section className="editor-panel quote-panel quote-form">
+            <h2 className="quote-section-title">识别与基本信息</h2>
             <input
               className="upload-input"
               type="file"
@@ -776,8 +776,8 @@ export default function Quote() {
             {ocrRaw ? <pre className="result-block">{ocrRaw}</pre> : null}
           </section>
 
-          <section className="editor-panel">
-            <h2>报价参数与期间</h2>
+          <section className="editor-panel quote-panel quote-form">
+            <h2 className="quote-section-title">报价参数与期间</h2>
             <div className="form-grid">
               <label>
                 <span>省份</span>
@@ -1053,28 +1053,38 @@ export default function Quote() {
           </section>
         </div>
 
-        <section className="editor-panel">
-          <h2>货车省份报价结果</h2>
+        <section className="editor-panel quote-panel quote-result quote-summary">
+          <h2 className="quote-section-title">货车省份报价结果</h2>
           <div className="result-grid">
-            <div className="result-panel">
+            <div className="result-panel quote-row">
               <strong>交强险</strong>
-              <span>{truckQuote.compulsory.toFixed(2)}</span>
+              <span className="premium-value quote-value quote-number">
+                {truckQuote.compulsory.toFixed(2)}
+              </span>
             </div>
-            <div className="result-panel">
+            <div className="result-panel quote-row">
               <strong>车损</strong>
-              <span>{truckQuote.damage.toFixed(2)}</span>
+              <span className="premium-value quote-value quote-number">
+                {truckQuote.damage.toFixed(2)}
+              </span>
             </div>
-            <div className="result-panel">
+            <div className="result-panel quote-row">
               <strong>三者</strong>
-              <span>{truckQuote.third.toFixed(2)}</span>
+              <span className="premium-value quote-value quote-number">
+                {truckQuote.third.toFixed(2)}
+              </span>
             </div>
-            <div className="result-panel">
+            <div className="result-panel quote-row">
               <strong>司机</strong>
-              <span>{truckQuote.driver.toFixed(2)}</span>
+              <span className="premium-value quote-value quote-number">
+                {truckQuote.driver.toFixed(2)}
+              </span>
             </div>
-            <div className="result-panel">
-              <strong>合计</strong>
-              <span>{truckQuote.total.toFixed(2)}</span>
+            <div className="result-panel quote-row summary-row">
+              <strong className="summary-label">合计</strong>
+              <span className="total-price quote-total summary-value quote-value quote-number">
+                {truckQuote.total.toFixed(2)}
+              </span>
             </div>
           </div>
           <div className="result-block warnings-block">
@@ -1091,9 +1101,9 @@ export default function Quote() {
           </div>
         </section>
 
-        <section className="editor-panel">
+        <section className="editor-panel quote-panel">
           <div className="section-header-row">
-            <h2>险种映射</h2>
+            <h2 className="quote-section-title">险种映射</h2>
             <button className="secondary-link" onClick={handleExportPdf}>
               导出报价单 PDF
             </button>
@@ -1144,8 +1154,8 @@ export default function Quote() {
           </div>
         </section>
 
-        <section className="editor-panel">
-          <h2>报价历史</h2>
+        <section className="editor-panel quote-panel">
+          <h2 className="quote-section-title">报价历史</h2>
           {history.length ? (
             <div className="history-list">
               {history.map((entry) => (
@@ -1169,7 +1179,7 @@ export default function Quote() {
           )}
         </section>
 
-        <div className="quote-preview-sheet" ref={previewRef}>
+        <div className="quote-preview-sheet quote-sheet" ref={previewRef}>
           <div className="sheet-header">
             <img alt="中国人寿财产保险" className="quote-logo" src={excelLogo} />
             <h1 className="sheet-title">车险报价单</h1>
