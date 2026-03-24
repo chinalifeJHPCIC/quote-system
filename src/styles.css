@@ -176,6 +176,10 @@ input {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
+.quote-page .quote-sheet-body {
+  padding: 0 6mm;
+}
+
 .quote-page .quote-sheet-header,
 .quote-page .sheet-header {
   display: grid;
@@ -221,7 +225,12 @@ input {
 
 .quote-page .sheet-desc {
   margin: 4px 0 8px;
-  text-indent: 2em;
+  margin-left: 2em;
+}
+
+.quote-page .quote-sheet-section-title,
+.quote-page .sheet-section-title {
+  margin-left: 2em;
 }
 
 .quote-page .quote-sheet-section {

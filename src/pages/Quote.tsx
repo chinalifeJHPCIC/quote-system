@@ -1185,6 +1185,7 @@ export default function Quote() {
             <h1 className="sheet-title quote-sheet-title">车险报价单</h1>
             <div className="sheet-divider quote-sheet-divider" />
           </div>
+          <div className="quote-sheet-body">
           <p className="sheet-recipient quote-sheet-paragraph">
             {template.insuredLabel} {getInsuredDisplayName(form)}
           </p>
@@ -1319,6 +1320,7 @@ export default function Quote() {
           <p className="sheet-company quote-sheet-paragraph">{template.companyLine}</p>
           <div className="sheet-date-row quote-sheet-date">
             <span>{quoteDate}</span>
+          </div>
           </div>
           </div>
         </div>
