@@ -13,6 +13,9 @@ export type RecognizedDocument = {
   usageNature?: string;
   approvedPassengers?: string;
   approvedLoad?: string;
+  engineNumber?: string;
+  vin?: string;
+  invoiceAmount?: string;
   templateType?: "新能源" | "机动车" | "特种车";
   raw?: string;
 };
@@ -79,6 +82,11 @@ function normalizeNumeric(raw: string) {
   return value;
 }
 
+function normalizeAlphaNumeric(raw: string) {
+  if (!raw) return "";
+  return raw.replace(/[^A-Z0-9]/gi, "").toUpperCase();
+}
+
 function looksLikeCompanyName(value: string) {
   return /公司|集团|中心|商行|工厂|店|合作社|物流/.test(value);
 }
@@ -120,20 +128,29 @@ function parseTraditionalOcrText(text: string): RecognizedDocument {
   );
 
   const brandModel =
-    matchLineValue(lines, ["厂牌车型", "厂牌型号"]) ||
+    matchLineValue(lines, ["厂牌车型", "厂牌型号", "车辆品牌/车辆名称", "商标/品牌"]) ||
     matchFirst(source, [
       /厂牌车型[:：]?(.{4,80}?)(?:初次登记日期|使用性质|核定载客|核定[载栽]质量|商业险|交强险|二、|三、)/,
       /厂牌型号[:：]?(.{4,80}?)(?:初次登记日期|使用性质|核定载客|核定[载栽]质量|商业险|交强险|二、|三、)/,
+      /车辆品牌\/车辆名称[:：]?(.{2,80}?)(?:车辆型号|车辆类型|车辆识别代号|发动机号码|燃料种类)/,
+      /商标\/品牌[:：]?(.{2,80}?)(?:车辆型号|车辆类型|车辆识别代号|发动机号码|燃料种类)/,
       /厂牌型号([A-Z0-9\u4e00-\u9fa5\-]{6,80})/,
     ]);
 
   const vehicleType =
-    matchLineValue(lines, ["车辆类型", "车辆名称", "车型"]) ||
+    matchLineValue(lines, [
+      "车辆类型",
+      "车辆名称",
+      "车型",
+      "纯电动仓栅式货车",
+      "车辆品牌/车辆名称",
+    ]) ||
     matchFirst(source, [
       /车辆类型[:：]?(.{2,40}?)(?:厂牌|初次登记日期|使用性质|核定载客|核定[载栽]质量|商业险|交强险|二、|三、)/,
       /车辆类型(.{2,40}?)(?:厂牌型号|合格证号|发动机号码|车辆识别代号)/,
       /车辆类型([\u4e00-\u9fa5A-Za-z0-9\-]{2,40})/,
       /车辆名称(.{2,40}?)(?:厂牌型号|产地|合格证号)/,
+      /车辆品牌\/车辆名称[:：]?(.{2,40}?)(?:车辆型号|车辆识别代号|发动机号码|燃料种类|外形尺寸)/,
       /车型[:：]?(.{2,40}?)(?:厂牌|初次登记日期|使用性质|核定载客|核定[载栽]质量|商业险|交强险|二、|三、)/,
     ]) ||
     brandModel;
@@ -156,20 +173,62 @@ function parseTraditionalOcrText(text: string): RecognizedDocument {
     ]);
 
   const approvedPassengers = normalizeNumeric(
-    matchLineValue(lines, ["核定载客", "准乘人数", "额定载客人数", "限乘人数"]) ||
+    matchLineValue(lines, [
+      "核定载客",
+      "准乘人数",
+      "额定载客人数",
+      "限乘人数",
+      "驾驶室准乘人数(人)",
+      "驾驶室准乘人数",
+    ]) ||
       matchFirst(source, [
         /核定载客[:：]?([0-9]{1,3})/,
         /准乘人数[:：]?([0-9]{1,3})/,
         /限乘人数[:：]?([0-9]{1,3})/,
+        /驾驶室准乘人数(?:\(人\))?[:：]?([0-9]{1,3})/,
       ]),
   );
 
   const approvedLoad = normalizeNumeric(
-    matchLineValue(lines, ["核定载质量", "核定栽质量", "额定载质量", "总质量"]) ||
+    matchLineValue(lines, [
+      "核定载质量",
+      "核定栽质量",
+      "额定载质量",
+      "总质量",
+      "额定载质量(kg)",
+    ]) ||
       matchFirst(source, [
         /核定[载栽]质量[:：]?([0-9.]{1,10})/,
         /额定载质量[:：]?([0-9.]{1,10})/,
+        /额定载质量\(kg\)[:：]?([0-9.]{1,10})/,
         /总质量[:：]?([0-9.]{1,10})/,
+      ]),
+  );
+
+  const engineNumber = normalizeAlphaNumeric(
+    matchLineValue(lines, ["发动机号码", "发动机号"]) ||
+      matchFirst(source, [
+        /发动机号码[:：]?([A-Z0-9]{6,30})/i,
+        /发动机号[:：]?([A-Z0-9]{6,30})/i,
+      ]),
+  );
+
+  const vin = normalizeAlphaNumeric(
+    matchLineValue(lines, ["车辆识别代号/车架号码", "车辆识别代号", "车架号码", "车架号"]) ||
+      matchFirst(source, [
+        /车辆识别代号\/?车架号码[:：]?([A-HJ-NPR-Z0-9]{11,30})/i,
+        /车辆识别代号[:：]?([A-HJ-NPR-Z0-9]{11,30})/i,
+        /车架号码[:：]?([A-HJ-NPR-Z0-9]{11,30})/i,
+        /车架号[:：]?([A-HJ-NPR-Z0-9]{11,30})/i,
+      ]),
+  );
+
+  const invoiceAmount = normalizeNumeric(
+    matchLineValue(lines, ["小写", "价税合计小写", "不含税价小写"]) ||
+      matchFirst(source, [
+        /小写[:：]?([0-9]{3,}\.?[0-9]{0,2})/,
+        /价税合计.*?小写[:：]?([0-9]{3,}\.?[0-9]{0,2})/,
+        /小写([0-9]{3,}\.?[0-9]{0,2})/,
       ]),
   );
 
@@ -220,6 +279,9 @@ function parseTraditionalOcrText(text: string): RecognizedDocument {
     usageNature: normalizedUsageNature,
     approvedPassengers,
     approvedLoad,
+    engineNumber,
+    vin,
+    invoiceAmount,
     templateType: detectTemplateType(source),
     raw: text.trim(),
   };

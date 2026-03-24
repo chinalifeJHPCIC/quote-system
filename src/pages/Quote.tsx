@@ -32,6 +32,9 @@ type QuoteFormState = {
   usageNature: string;
   approvedPassengers: string;
   approvedLoad: string;
+  engineNumber: string;
+  vin: string;
+  invoiceAmount: string;
   damageCoverage: number;
   thirdParty: number;
   driver: number;
@@ -71,6 +74,9 @@ const initialForm: QuoteFormState = {
   usageNature: "货运",
   approvedPassengers: "2",
   approvedLoad: "40000",
+  engineNumber: "",
+  vin: "",
+  invoiceAmount: "",
   damageCoverage: 224000,
   thirdParty: 100,
   driver: 10,
@@ -274,6 +280,13 @@ function mergeRecognizedForm(
     approvedLoad: normalizeRecognizedText(
       recognized.approvedLoad || current.approvedLoad,
     ),
+    engineNumber: normalizeRecognizedText(
+      recognized.engineNumber || current.engineNumber,
+    ),
+    vin: normalizeRecognizedText(recognized.vin || current.vin),
+    invoiceAmount: normalizeRecognizedText(
+      recognized.invoiceAmount || current.invoiceAmount,
+    ),
   };
 }
 
@@ -432,6 +445,9 @@ export default function Quote() {
       recognized.firstRegistrationDate,
       recognized.approvedPassengers,
       recognized.approvedLoad,
+      recognized.engineNumber,
+      recognized.vin,
+      recognized.invoiceAmount,
     ].some(Boolean);
 
     if (!hasImportableField) return;
@@ -621,6 +637,33 @@ export default function Quote() {
                   type="text"
                   value={form.approvedLoad}
                   onChange={(e) => updateForm("approvedLoad", e.target.value)}
+                />
+              </label>
+
+              <label>
+                <span>发动机号码</span>
+                <input
+                  type="text"
+                  value={form.engineNumber}
+                  onChange={(e) => updateForm("engineNumber", e.target.value)}
+                />
+              </label>
+
+              <label>
+                <span>车辆识别代号 / 车架号码</span>
+                <input
+                  type="text"
+                  value={form.vin}
+                  onChange={(e) => updateForm("vin", e.target.value)}
+                />
+              </label>
+
+              <label>
+                <span>发票金额（小写）</span>
+                <input
+                  type="text"
+                  value={form.invoiceAmount}
+                  onChange={(e) => updateForm("invoiceAmount", e.target.value)}
                 />
               </label>
             </div>
@@ -932,6 +975,9 @@ export default function Quote() {
             <p>使用性质：{form.usageNature || "-"}</p>
             <p>核定载客：{form.approvedPassengers || "-"}</p>
             <p>核定栽质量：{form.approvedLoad || "-"}</p>
+            <p>发动机号码：{form.engineNumber || "-"}</p>
+            <p>车辆识别代号/车架号码：{form.vin || "-"}</p>
+            <p>发票金额（小写）：{form.invoiceAmount || "-"}</p>
           </div>
 
           {template.includeCompulsoryPeriod ? (
