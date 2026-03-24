@@ -36,7 +36,7 @@ describe("truck quote module", () => {
     expect(result.warnings).toHaveLength(0);
   });
 
-  it("falls back to estimate rate and warns when province data is missing", () => {
+  it("uses official Beijing rates and still warns only for estimated damage", () => {
     const result = calculateTruckQuote({
       province: "北京",
       usageType: "营业",
@@ -50,12 +50,11 @@ describe("truck quote module", () => {
     });
 
     expect(result.damage).toBe(4000);
-    expect(result.third).toBe(0);
-    expect(result.driver).toBe(0);
+    expect(result.third).toBe(5077.67);
+    expect(result.driver).toBe(678.67);
     expect(result.compulsory).toBe(4032);
     expect(result.warnings).toContain("车损使用估算费率，非车型库精确值");
-    expect(result.warnings).toContain("北京营业2吨以下三者100万纯风险数据缺失");
-    expect(result.warnings).toContain("北京营业2吨以下司机费率数据缺失");
+    expect(result.warnings).toHaveLength(1);
   });
 
   it("applies compulsory premium adjustments", () => {
