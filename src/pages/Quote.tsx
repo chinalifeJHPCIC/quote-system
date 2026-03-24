@@ -265,6 +265,26 @@ function normalizeRecognizedDate(value: string) {
   return `${digits.slice(0, 4)}年${digits.slice(4, 6)}月${digits.slice(6, 8)}日`;
 }
 
+function normalizeFlexibleDisplayDate(value: string) {
+  if (!value) return "";
+  const digits = value.replace(/\D/g, "");
+  if (digits.length !== 8) return value.trim();
+  return `${digits.slice(0, 4)}年${digits.slice(4, 6)}月${digits.slice(6, 8)}日`;
+}
+
+function normalizeFlexibleDateInput(value: string) {
+  if (!value) return "";
+
+  const trimmed = value.trim();
+  const digits = trimmed.replace(/\D/g, "");
+
+  if (digits.length === 8) {
+    return `${digits.slice(0, 4)}年${digits.slice(4, 6)}月${digits.slice(6, 8)}日`;
+  }
+
+  return trimmed;
+}
+
 function normalizeRecognizedText(value: string) {
   return value.trim();
 }
@@ -407,7 +427,11 @@ export default function Quote() {
     recognized: RecognizedDocument,
     options?: { replaceWithInitial?: boolean },
   ) => {
-    if (!hasImportableRecognizedFields(recognized)) return;
+    if (!hasImportableRecognizedFields(recognized)) {
+      setOcrError("当前识别结果未提取到可导入字段，请重新上传更清晰的图片。");
+      setOcrRaw(JSON.stringify(recognized, null, 2));
+      return;
+    }
 
     const baseForm = options?.replaceWithInitial ? initialForm : formRef.current;
     const nextForm = mergeRecognizedForm(baseForm, recognized);
@@ -416,7 +440,19 @@ export default function Quote() {
     formRef.current = nextForm;
     setForm(nextForm);
     syncTemplate(nextForm, nextKind);
+    setOcrError("");
     setOcrRaw(JSON.stringify(recognized, null, 2));
+  };
+
+  const handleImportRecognized = () => {
+    const recognized = readRecognizedDocument();
+    if (!recognized) {
+      setOcrError("当前没有可导入的识别结果，请先上传图片进行 OCR 识别。");
+      return;
+    }
+
+    setLastRecognized(recognized);
+    applyRecognizedDocument(recognized);
   };
 
   const saveHistory = (
@@ -432,9 +468,11 @@ export default function Quote() {
       items: nextItems,
     };
 
-    const nextHistory = [entry, ...history].slice(0, HISTORY_LIMIT);
-    setHistory(nextHistory);
-    writeQuoteHistory(nextHistory);
+    setHistory((current) => {
+      const nextHistory = [entry, ...current].slice(0, HISTORY_LIMIT);
+      writeQuoteHistory(nextHistory);
+      return nextHistory;
+    });
   };
 
   const handleTodayDate = () => {
@@ -542,15 +580,33 @@ export default function Quote() {
     applyRecognizedDocument(recognized, { replaceWithInitial: true });
   }, []);
 
+  useEffect(() => {
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== "quote-system-last-ocr" || !event.newValue) return;
+
+      try {
+        const recognized = JSON.parse(event.newValue) as RecognizedDocument;
+        setLastRecognized(recognized);
+      } catch {
+        // Ignore malformed storage payloads.
+      }
+    };
+
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
   const handleExportPdf = async () => {
     if (!previewRef.current) return;
     await generateInsurancePDF(previewRef.current);
   };
 
   const handleHistoryImport = (entry: QuoteHistoryEntry) => {
+    formRef.current = entry.form;
     setForm(entry.form);
     setTemplateKind(entry.templateKind);
     setItems(entry.items);
+    setOcrError("");
   };
 
   return (
@@ -616,7 +672,7 @@ export default function Quote() {
               <div className="action-row">
                 <button
                   className="secondary-link"
-                  onClick={() => applyRecognizedDocument(lastRecognized)}
+                  onClick={handleImportRecognized}
                   type="button"
                 >
                   导入识别结果
@@ -711,6 +767,12 @@ export default function Quote() {
                   value={form.firstRegistrationDate}
                   onChange={(e) =>
                     updateForm("firstRegistrationDate", e.target.value)
+                  }
+                  onBlur={(e) =>
+                    updateForm(
+                      "firstRegistrationDate",
+                      normalizeFlexibleDateInput(e.target.value),
+                    )
                   }
                 />
               </label>
@@ -1199,13 +1261,12 @@ export default function Quote() {
             <div className="sheet-basic-grid quote-table">
               <p className="quote-row"><span className="quote-label">号牌号码：</span><span className="quote-value">{form.plate || "新车未上牌"}</span></p>
               <p className="quote-row"><span className="quote-label">厂牌车型：</span><span className="quote-value">{form.brandModel || form.vehicleType || "-"}</span></p>
-              <p className="quote-row"><span className="quote-label">初次登记日期：</span><span className="quote-value">{form.firstRegistrationDate || "-"}</span></p>
+              <p className="quote-row"><span className="quote-label">初次登记日期：</span><span className="quote-value">{normalizeFlexibleDisplayDate(form.firstRegistrationDate) || "-"}</span></p>
               <p className="quote-row"><span className="quote-label">使用性质：</span><span className="quote-value">{form.usageNature || "-"}</span></p>
               <p className="quote-row"><span className="quote-label">核定载客：</span><span className="quote-value">{form.approvedPassengers || "-"}</span></p>
-              <p className="quote-row"><span className="quote-label">核定栽质量：</span><span className="quote-value quote-number">{form.approvedLoad || "-"}</span></p>
+              <p className="quote-row"><span className="quote-label">核定载质量：</span><span className="quote-value quote-number">{form.approvedLoad || "-"}</span></p>
               <p className="quote-row"><span className="quote-label">发动机号码：</span><span className="quote-value quote-number">{form.engineNumber || "-"}</span></p>
               <p className="quote-row"><span className="quote-label">车辆识别代号：</span><span className="quote-value quote-number">{form.vin || "-"}</span></p>
-              <p className="quote-row"><span className="quote-label">发票金额（小写）：</span><span className="quote-value quote-money">{form.invoiceAmount || "-"}</span></p>
             </div>
 
             {template.includeCompulsoryPeriod ? (

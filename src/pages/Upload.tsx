@@ -47,7 +47,7 @@ export default function Upload() {
             <p className="eyebrow">OCR</p>
             <h1>证件识别</h1>
             <p className="intro">
-              上传行驶证、身份证或营业执照，使用传统 OCR 提取文字并映射成 JSON。
+              上传行驶证、合格证或发票，使用传统 OCR 定向提取关键字段并映射成 JSON。
             </p>
           </div>
           <Link className="secondary-link" to="/">
