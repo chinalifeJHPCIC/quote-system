@@ -245,11 +245,18 @@ input {
   line-height: 1.4;
 }
 
+.quote-page .sheet-basic-grid,
+.quote-page .sheet-info-list,
+.quote-page .sheet-period-row {
+  margin-left: 2em;
+}
+
 .quote-page .sheet-basic-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 2px 28px;
-  margin: 0 0 6px;
+  margin-top: 0;
+  margin-bottom: 6px;
 }
 
 .quote-page .sheet-basic-grid p,
